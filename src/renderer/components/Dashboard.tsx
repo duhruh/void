@@ -342,7 +342,9 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     if (isCreatingNew) {
       return { status: 'Creating', pathText: newSecretPath || 'New Secret' };
     }
-    if (!selectedSecretPath) return null;
+    if (!selectedSecretPath) {
+      return { status: 'Ready', pathText: 'Vault Locked' };
+    }
     
     const status = isEditing ? 'Editing' : 'Viewing';
     if (selectedSecretPath.length > 35) {
@@ -467,7 +469,8 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none',
               userSelect: 'none',
-              zIndex: 5
+              zIndex: 5,
+              whiteSpace: 'nowrap'
             }}
           >
             <Box
@@ -483,12 +486,16 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                   ? 'rgba(103, 80, 164, 0.08)'
                   : statusInfo.status === 'Editing'
                     ? 'rgba(235, 143, 111, 0.15)'
-                    : 'rgba(56, 238, 154, 0.15)',
+                    : statusInfo.status === 'Creating'
+                      ? 'rgba(56, 238, 154, 0.15)'
+                      : 'rgba(103, 80, 164, 0.08)',
                 color: statusInfo.status === 'Viewing'
-                  ? 'var(--color-primary)'
+                  ? 'primary.main'
                   : statusInfo.status === 'Editing'
                     ? '#eb8f6f'
-                    : '#38ee9a',
+                    : statusInfo.status === 'Creating'
+                      ? '#38ee9a'
+                      : 'primary.main',
                 border: '1px solid currentColor',
                 lineHeight: 1
               }}
@@ -500,7 +507,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                 fontFamily: 'var(--font-heading)',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: 'var(--color-on-surface-variant)',
+                color: 'text.secondary',
                 letterSpacing: '-0.01em'
               }}
             >
