@@ -357,6 +357,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   };
 
   const statusInfo = getStatusInfo();
+  console.log('Void TitleBar Status:', statusInfo);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -365,6 +366,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       <Box
         className="window-titlebar"
         sx={{
+          position: 'relative',
           WebkitAppRegion: (fileMenuAnchor || editMenuAnchor || helpMenuAnchor) ? 'no-drag' : 'drag'
         }}
       >
@@ -490,12 +492,12 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                       ? 'rgba(56, 238, 154, 0.15)'
                       : 'rgba(103, 80, 164, 0.08)',
                 color: statusInfo.status === 'Viewing'
-                  ? 'primary.main'
+                  ? 'var(--color-primary)'
                   : statusInfo.status === 'Editing'
                     ? '#eb8f6f'
                     : statusInfo.status === 'Creating'
                       ? '#38ee9a'
-                      : 'primary.main',
+                      : 'var(--color-primary)',
                 border: '1px solid currentColor',
                 lineHeight: 1
               }}
@@ -507,7 +509,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                 fontFamily: 'var(--font-heading)',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: 'text.secondary',
+                color: 'var(--color-on-surface)',
                 letterSpacing: '-0.01em'
               }}
             >
