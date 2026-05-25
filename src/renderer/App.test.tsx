@@ -65,7 +65,7 @@ describe('App component router', () => {
     window.config.loadConfig = vi.fn().mockReturnValue(promise);
 
     render(<App />);
-    expect(screen.getByText('Loading gopass-desktop...')).toBeInTheDocument();
+    expect(screen.getByText('Loading Void...')).toBeInTheDocument();
 
     await act(async () => {
       resolveConfig({
@@ -100,7 +100,7 @@ describe('App component router', () => {
       render(<App />);
     });
 
-    expect(screen.queryByText('Loading gopass-desktop...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading Void...')).not.toBeInTheDocument();
     expect(screen.getByTestId('dashboard-mock')).toBeInTheDocument();
   });
 

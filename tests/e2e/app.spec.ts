@@ -1,7 +1,7 @@
 import { _electron as electron, test, expect } from '@playwright/test';
 import * as path from 'path';
 
-test.describe('gopass-desktop E2E', () => {
+test.describe('Void E2E', () => {
   let electronApp: any;
 
   test.beforeEach(async () => {
@@ -45,7 +45,7 @@ test.describe('gopass-desktop E2E', () => {
     await window.goto(localFilePath);
 
     // Verify Title
-    expect(await window.title()).toBe('gopass-desktop Dashboard');
+    expect(await window.title()).toBe('Void');
 
     // Wait for the folder list and check folder tree
     const folderItem = window.locator('.nav-tree-item >> text="e2etest"');

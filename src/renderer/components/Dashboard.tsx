@@ -341,10 +341,15 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
       {/* Window custom title bar */}
-      <Box className="window-titlebar">
+      <Box
+        className="window-titlebar"
+        sx={{
+          WebkitAppRegion: (fileMenuAnchor || editMenuAnchor || helpMenuAnchor) ? 'no-drag' : 'drag'
+        }}
+      >
         <Box className="window-titlebar-left">
           <img src={appIcon} alt="Logo" style={{ width: 18, height: 18 }} />
-          <Typography className="window-titlebar-title" sx={{ mr: 2 }}>gopass-desktop</Typography>
+          <Typography className="window-titlebar-title" sx={{ mr: 2 }}>Void</Typography>
           
           {/* Custom Menu Bar Options */}
           <Box className="window-titlebar-menu" sx={{ display: 'flex', gap: 0.5, WebkitAppRegion: 'no-drag' }}>
@@ -965,10 +970,10 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
 
       {/* About Dialog */}
       <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>About gopass-desktop</DialogTitle>
+        <DialogTitle sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>About Void</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 1 }}>
           <img src={appIcon} alt="Logo" style={{ width: 64, height: 64 }} />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>gopass-desktop</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>Void</Typography>
           <Typography variant="body2" sx={{ color: 'var(--color-outline)' }}>Version {config.version}</Typography>
           <Typography variant="body2" align="center">
             A beautiful, secure, Material Design 3 cross-platform GUI wrapper for the gopass CLI.
@@ -1072,6 +1077,24 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
               />
             }
             label={<Typography variant="body2">Show Dashboard on application startup</Typography>}
+          />
+        </Box>
+
+        {/* Global Shortcut settings */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Global Shortcut</Typography>
+          <TextField
+            fullWidth
+            size="small"
+            label="Toggle Quick Access Keybinding"
+            value={localConfig.application.global_hotkey}
+            onChange={(e) =>
+              setLocalConfig((prev) => ({
+                ...prev,
+                application: { ...prev.application, global_hotkey: e.target.value },
+              }))
+            }
+            helperText="e.g. CommandOrControl+Shift+P, Ctrl+Alt+Space"
           />
         </Box>
 

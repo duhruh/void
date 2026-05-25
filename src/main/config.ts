@@ -89,14 +89,14 @@ export function getConfigPath(): string {
   const home = os.homedir();
 
   if (platform === 'darwin') {
-    return path.join(home, 'Library', 'Application Support', 'gopass-desktop', 'config.json');
+    return path.join(home, 'Library', 'Application Support', 'Void', 'config.json');
   } else if (platform === 'win32') {
     const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
-    return path.join(appData, 'gopass-desktop', 'config.json');
+    return path.join(appData, 'Void', 'config.json');
   } else {
     // Linux and fallback
     const configHome = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
-    return path.join(configHome, 'gopass-desktop', 'config.json');
+    return path.join(configHome, 'Void', 'config.json');
   }
 }
 

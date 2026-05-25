@@ -1,7 +1,7 @@
 {
-  "name": "gopass-desktop",
+  "name": "void-desktop",
   "version": "1.0.0",
-  "description": "Material Design 3 GUI Wrapper for gopass CLI",
+  "description": "Void - A themed Material Design 3 GUI Wrapper for gopass CLI",
   "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "vite",

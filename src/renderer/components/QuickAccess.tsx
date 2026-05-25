@@ -296,7 +296,7 @@ export default function QuickAccess({ config }: QuickAccessProps) {
             <span><strong>⌥E</strong> Edit</span>
           </Typography>
           <Typography variant="caption" sx={{ color: 'var(--color-outline)', fontWeight: 500 }}>
-            gopass-desktop (Q)
+            Void (Q)
           </Typography>
         </Box>
       </Paper>

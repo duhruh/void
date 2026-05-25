@@ -130,7 +130,7 @@ export default function App() {
   }, [config, isDarkMode]);
 
   if (!config) {
-    return <div style={{ padding: 24, textAlign: 'center' }}>Loading gopass-desktop...</div>;
+    return <div style={{ padding: 24, textAlign: 'center' }}>Loading Void...</div>;
   }
 
   return (

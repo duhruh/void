@@ -15,9 +15,10 @@ let dashboardWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentConfig: AppConfig;
 
-function getAppIconPath(mode: string): string {
+function getAppIconPath(mode: string, type: 'tray' | 'window'): string {
   const isDark = mode === 'dark' || (mode === 'system' && nativeTheme.shouldUseDarkColors);
-  const iconName = isDark ? 'dark.svg' : 'light.svg';
+  const sizeSuffix = type === 'tray' ? '_16.png' : '_256.png';
+  const iconName = `${isDark ? 'dark' : 'light'}${sizeSuffix}`;
   
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'assets', iconName);
@@ -27,17 +28,17 @@ function getAppIconPath(mode: string): string {
 }
 
 function updateAppIcons() {
-  const iconPath = getAppIconPath(currentConfig.theme.mode);
-  const icon = nativeImage.createFromPath(iconPath);
+  const trayIconPath = getAppIconPath(currentConfig.theme.mode, 'tray');
+  const winIconPath = getAppIconPath(currentConfig.theme.mode, 'window');
 
   if (tray) {
-    tray.setImage(icon.resize({ width: 16, height: 16 }));
+    tray.setImage(nativeImage.createFromPath(trayIconPath));
   }
   if (dashboardWindow) {
-    dashboardWindow.setIcon(icon);
+    dashboardWindow.setIcon(nativeImage.createFromPath(winIconPath));
   }
   if (quickAccessWindow) {
-    quickAccessWindow.setIcon(icon);
+    quickAccessWindow.setIcon(nativeImage.createFromPath(winIconPath));
   }
 }
 
@@ -85,9 +86,9 @@ const TRAY_ICON_BASE64 =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAP0lEQVR42mNkoBAwUqifAWwgZGBg+M9AIWAcNYCBYdQABoZRABgGIIXRgEUBowEwDAwGwCgwGACjwGAAjAJCBgYAH98ED3gLqioAAAAASUVORK5CYII=';
 
 function createTray() {
-  const iconPath = getAppIconPath(currentConfig.theme.mode);
+  const iconPath = getAppIconPath(currentConfig.theme.mode, 'tray');
   const icon = nativeImage.createFromPath(iconPath);
-  tray = new Tray(icon.resize({ width: 16, height: 16 }));
+  tray = new Tray(icon);
   
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Quick Access', click: () => toggleQuickAccess() },
@@ -96,7 +97,7 @@ function createTray() {
     { label: 'Quit', click: () => quitApp() }
   ]);
 
-  tray.setToolTip('gopass-desktop');
+  tray.setToolTip('Void');
   tray.setContextMenu(contextMenu);
   tray.on('double-click', () => {
     toggleQuickAccess();
@@ -104,7 +105,7 @@ function createTray() {
 }
 
 function createQuickAccessWindow(useDevServer: boolean) {
-  const iconPath = getAppIconPath(currentConfig.theme.mode);
+  const iconPath = getAppIconPath(currentConfig.theme.mode, 'window');
   quickAccessWindow = new BrowserWindow({
     width: 600,
     height: 450,
@@ -114,6 +115,7 @@ function createQuickAccessWindow(useDevServer: boolean) {
     show: false,
     skipTaskbar: true,
     transparent: true,
+    title: 'Void',
     icon: nativeImage.createFromPath(iconPath),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -142,7 +144,7 @@ function createQuickAccessWindow(useDevServer: boolean) {
 }
 
 function createDashboardWindow(useDevServer: boolean) {
-  const iconPath = getAppIconPath(currentConfig.theme.mode);
+  const iconPath = getAppIconPath(currentConfig.theme.mode, 'window');
   dashboardWindow = new BrowserWindow({
     width: 1000,
     height: 700,
@@ -150,7 +152,7 @@ function createDashboardWindow(useDevServer: boolean) {
     minHeight: 600,
     show: false,
     frame: false,
-    title: 'gopass-desktop Dashboard',
+    title: 'Void',
     icon: nativeImage.createFromPath(iconPath),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

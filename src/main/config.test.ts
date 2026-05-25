@@ -37,21 +37,21 @@ describe('Config Manager', () => {
     it('should generate macOS path', () => {
       Object.defineProperty(process, 'platform', { value: 'darwin' });
       const configPath = getConfigPath();
-      expect(configPath).toContain(path.normalize('/mock/home/Library/Application Support/gopass-desktop/config.json'));
+      expect(configPath).toContain(path.normalize('/mock/home/Library/Application Support/Void/config.json'));
     });
 
     it('should generate Windows path using APPDATA env', () => {
       Object.defineProperty(process, 'platform', { value: 'win32' });
       process.env.APPDATA = 'C:\\mock\\AppData';
       const configPath = getConfigPath();
-      expect(configPath).toBe(path.normalize('C:\\mock\\AppData\\gopass-desktop\\config.json'));
+      expect(configPath).toBe(path.normalize('C:\\mock\\AppData\\Void\\config.json'));
     });
 
     it('should generate Linux path using XDG_CONFIG_HOME', () => {
       Object.defineProperty(process, 'platform', { value: 'linux' });
       process.env.XDG_CONFIG_HOME = '/mock/xdg/config';
       const configPath = getConfigPath();
-      expect(configPath).toBe(path.normalize('/mock/xdg/config/gopass-desktop/config.json'));
+      expect(configPath).toBe(path.normalize('/mock/xdg/config/Void/config.json'));
     });
   });
 
