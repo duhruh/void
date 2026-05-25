@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Void — A Premium, Secure GUI for gopass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --color-primary: #8f6fd8;
+      --color-primary-container: #4f378b;
+      --color-on-primary-container: #eaddff;
+      --color-surface: #121016;
+      --color-surface-variant: #1e1b24;
+      --color-on-surface: #e6e1e5;
+      --color-on-surface-variant: #cac4d0;
+      --color-outline: #938f99;
+      --glass-bg: rgba(30, 27, 36, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --elevation-3: 0px 5px 5px -3px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12);
+      
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--color-surface);
+      color: var(--color-on-surface);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-heading);
+      font-weight: 600;
+    }
+
+    a {
+      color: var(--color-primary);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: #b19bf0;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      backdrop-filter: blur(12px);
+      background: rgba(18, 16, 22, 0.8);
+      border-bottom: 1px solid var(--glass-border);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      transition: background 0.3s ease;
+    }
+
+    header .nav-container {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-container img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .logo-container span {
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 0%, var(--color-primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    nav a {
+      color: var(--color-on-surface-variant);
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    nav a:hover {
+      color: var(--color-on-surface);
+    }
+
+    .btn-github {
+      background: var(--color-surface-variant);
+      border: 1px solid var(--glass-border);
+      color: var(--color-on-surface);
+      padding: 8px 18px;
+      border-radius: 100px;
+      font-family: var(--font-heading);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-github:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: var(--color-outline);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding-top: 160px;
+      padding-bottom: 80px;
+      position: relative;
+      background: radial-gradient(circle at 80% 20%, rgba(143, 111, 216, 0.15) 0%, transparent 50%),
+                  radial-gradient(circle at 10% 80%, rgba(103, 80, 164, 0.1) 0%, transparent 50%);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .hero-text h1 {
+      font-size: 3.5rem;
+      line-height: 1.15;
+      margin-bottom: 24px;
+      letter-spacing: -0.03em;
+    }
+
+    .hero-text h1 span {
+      background: linear-gradient(135deg, var(--color-primary) 0%, #b19bf0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-text p {
+      font-size: 1.15rem;
+      color: var(--color-on-surface-variant);
+      margin-bottom: 36px;
+      max-width: 540px;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background-color: var(--color-primary);
+      color: #ffffff;
+      padding: 14px 28px;
+      border-radius: 100px;
+      font-family: var(--font-heading);
+      font-weight: 600;
+      box-shadow: 0px 4px 12px rgba(143, 111, 216, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover {
+      background-color: #a084df;
+      box-shadow: 0px 6px 16px rgba(143, 111, 216, 0.5);
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      border: 1px solid var(--color-outline);
+      color: var(--color-on-surface);
+      padding: 14px 28px;
+      border-radius: 100px;
+      font-family: var(--font-heading);
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--color-on-surface);
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--color-on-surface);
+    }
+
+    /* Floating App Preview Mockup */
+    .hero-preview {
+      position: relative;
+    }
+
+    .app-preview-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: var(--elevation-3);
+      backdrop-filter: blur(12px);
+      width: 100%;
+      height: 300px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .app-titlebar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 12px;
+    }
+
+    .titlebar-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .titlebar-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+    }
+
+    .app-body-mock {
+      display: flex;
+      flex-grow: 1;
+      gap: 12px;
+    }
+
+    .mock-pane-1 {
+      width: 30%;
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.03);
+      padding: 12px;
+    }
+
+    .mock-pane-2 {
+      width: 70%;
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mock-line {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+
+    .mock-line.short { width: 40%; }
+    .mock-line.medium { width: 70%; }
+    .mock-line.long { width: 95%; }
+
+    .mock-search {
+      height: 32px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 12px;
+    }
+
+    /* Features Section */
+    .features {
+      padding: 100px 0;
+      background-color: var(--color-surface-variant);
+      border-top: 1px solid var(--glass-border);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .section-title h2 {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-title p {
+      color: var(--color-on-surface-variant);
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 32px;
+    }
+
+    .feature-card {
+      background: var(--color-surface);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--color-primary);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--color-primary-container);
+      color: var(--color-on-primary-container);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 24px;
+    }
+
+    .feature-card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-card p {
+      color: var(--color-on-surface-variant);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    /* Installation Section */
+    .install {
+      padding: 100px 0;
+    }
+
+    .install-tabs {
+      background: var(--color-surface-variant);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: var(--elevation-3);
+    }
+
+    .tab-header {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 32px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 12px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--color-on-surface-variant);
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      color: var(--color-primary);
+      background: rgba(143, 111, 216, 0.1);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .install-details {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 48px;
+    }
+
+    .terminal {
+      background: #0d0c10;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: #38ee9a;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+
+    .terminal-line {
+      margin-bottom: 8px;
+    }
+
+    .terminal-line span {
+      color: var(--color-outline);
+      user-select: none;
+    }
+
+    .download-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+      border-left: 1px solid rgba(255,255,255,0.05);
+      padding-left: 48px;
+    }
+
+    .download-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .download-card:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--color-outline);
+    }
+
+    .download-card h4 {
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+    }
+
+    .download-card p {
+      color: var(--color-on-surface-variant);
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+
+    /* Documentation Section */
+    .docs-section {
+      padding: 100px 0;
+      background-color: var(--color-surface-variant);
+      border-top: 1px solid var(--glass-border);
+    }
+
+    .docs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+    }
+
+    .docs-card h3 {
+      font-size: 1.75rem;
+      margin-bottom: 20px;
+    }
+
+    .docs-card p {
+      color: var(--color-on-surface-variant);
+      margin-bottom: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    th {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      color: var(--color-on-surface);
+    }
+
+    td {
+      font-size: 0.9rem;
+      color: var(--color-on-surface-variant);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      background: rgba(255,255,255,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--color-primary);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--glass-border);
+      padding: 48px 0;
+      background-color: var(--color-surface);
+      text-align: center;
+    }
+
+    footer p {
+      color: var(--color-outline);
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .footer-links a {
+      color: var(--color-outline);
+      font-size: 0.85rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--color-on-surface);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+        text-align: center;
+      }
+      .hero-text p {
+        margin: 0 auto 36px;
+      }
+      .cta-buttons {
+        justify-content: center;
+      }
+      .install-details {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .download-column {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        padding-top: 32px;
+      }
+      .docs-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="container nav-container">
+      <div class="logo-container">
+        <img src="assets/logo.svg" alt="Void Logo">
+        <span>Void</span>
+      </div>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#docs">Docs</a>
+        <a href="https://github.com/duhruh/void" class="btn-github">
+          <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+          </svg>
+          Star on GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div class="hero-text">
+        <h1>Beautifully secure GUI wrapper for <span>gopass</span>.</h1>
+        <p>Void wraps your GPG-encrypted password store in a stunning, fluid Material Design 3 interface. Engineered for efficiency with search overlays, clipboard auto-purge, and instant password generation.</p>
+        <div class="cta-buttons">
+          <a href="#install" class="btn-primary">Get Void Desktop</a>
+          <a href="https://github.com/duhruh/void" class="btn-secondary">View Repository</a>
+        </div>
+      </div>
+      <div class="hero-preview">
+        <div class="app-preview-card">
+          <div class="app-titlebar">
+            <div class="titlebar-dots">
+              <div class="titlebar-dot" style="background:#ff5f56"></div>
+              <div class="titlebar-dot" style="background:#ffbd2e"></div>
+              <div class="titlebar-dot" style="background:#27c93f"></div>
+            </div>
+            <div class="mock-line short" style="opacity:0.3"></div>
+          </div>
+          <div class="mock-search"></div>
+          <div class="app-body-mock">
+            <div class="mock-pane-1">
+              <div class="mock-line short" style="margin-bottom:8px"></div>
+              <div class="mock-line medium" style="margin-bottom:8px; opacity:0.5"></div>
+              <div class="mock-line short" style="opacity:0.5"></div>
+            </div>
+            <div class="mock-pane-2">
+              <div class="mock-line medium"></div>
+              <div class="mock-line long" style="opacity:0.7"></div>
+              <div class="mock-line short" style="opacity:0.5"></div>
+              <div class="mock-line medium" style="opacity:0.4; margin-top:24px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>Premium Design & Strong Security</h2>
+        <p>A native-feeling, elegant experience that doesn't compromise on cryptographic safety.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Quick Access Search</h3>
+          <p>Toggle a floating panel at any time using a global shortcut to search and copy passwords, usernames, or TOTP codes without opening the full window.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎲</div>
+          <h3>Password Generator</h3>
+          <p>Press the global hotkey to pop up a compact random generator, press Space to re-roll and generate new strings, and hit Enter to copy and automatically close.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Content Protection</h3>
+          <p>Void configures OS level content protection parameters preventing any screenshots, video recordings, or screen-sharing apps from capturing visible secrets.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Automated Sync</h3>
+          <p>Enable auto git sync in settings to automatically compile, commit, push, and pull secrets to/from remote stores on changes.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Dynamic Hotkeys</h3>
+          <p>Record keyboard combinations interactively within settings to completely customize dashboard startup, local copies, and global overlays.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <h3>MD3 Theming</h3>
+          <p>Buttery smooth themes that adapt to system defaults, offering both light and dark profiles paired with harmonious Material accents.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation Section -->
+  <section class="install" id="install">
+    <div class="container">
+      <div class="section-title">
+        <h2>Download & Setup</h2>
+        <p>Void is available for all major platforms. Make sure you have the <code>gopass</code> CLI installed beforehand.</p>
+      </div>
+
+      <div class="install-tabs">
+        <div class="tab-header">
+          <button class="tab-btn active" onclick="openTab(event, 'mac')">macOS</button>
+          <button class="tab-btn" onclick="openTab(event, 'win')">Windows</button>
+          <button class="tab-btn" onclick="openTab(event, 'linux')">Linux</button>
+        </div>
+
+        <!-- macOS Tab -->
+        <div id="mac" class="tab-content active">
+          <div class="install-details">
+            <div>
+              <h3>Installing on macOS</h3>
+              <p style="margin-bottom: 20px;">Use Homebrew to install the gopass core wrapper dependency, then grab the Void installer:</p>
+              <div class="terminal">
+                <div class="terminal-line"><span>$</span> brew install gopass gnupg</div>
+                <div class="terminal-line"><span>$</span> # Download and drag Void to /Applications</div>
+              </div>
+              <p>Void automatically resolves your system's gopass environment variables and parses your local GPG configurations.</p>
+            </div>
+            <div class="download-column">
+              <div class="download-card">
+                <h4>macOS DMG Installer</h4>
+                <p>Universal arm64/x64 Apple Silicon package</p>
+                <a href="https://github.com/duhruh/void/releases/download/v1.0.0/Void-1.0.0.dmg" class="btn-primary" style="display:inline-block;">Download .DMG</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Windows Tab -->
+        <div id="win" class="tab-content">
+          <div class="install-details">
+            <div>
+              <h3>Installing on Windows</h3>
+              <p style="margin-bottom: 20px;">Install the gopass CLI via Winget or Scoop, then download the Windows executable:</p>
+              <div class="terminal">
+                <div class="terminal-line"><span>$</span> winget install gopasspw.gopass</div>
+                <div class="terminal-line"><span>$</span> # Or use scoop: scoop install gopass</div>
+              </div>
+              <p>Windows builds support native tray minimizations, background hotkeys, and content-protection overlays.</p>
+            </div>
+            <div class="download-column">
+              <div class="download-card">
+                <h4>Windows Installer</h4>
+                <p>Standard NSIS setup installer (.exe)</p>
+                <a href="https://github.com/duhruh/void/releases/download/v1.0.0/Void-1.0.0.exe" class="btn-primary" style="display:inline-block; margin-bottom: 12px;">Download .EXE</a>
+                <p style="margin-bottom:0;"><a href="https://github.com/duhruh/void/releases/download/v1.0.0/Void-1.0.0-portable.exe">Download Portable EXE</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linux Tab -->
+        <div id="linux" class="tab-content">
+          <div class="install-details">
+            <div>
+              <h3>Installing on Linux</h3>
+              <p style="margin-bottom: 20px;">Install gopass from your distribution packages, then fetch the AppImage or Debian package:</p>
+              <div class="terminal">
+                <div class="terminal-line"><span>$</span> sudo apt install gopass</div>
+                <div class="terminal-line"><span>$</span> sudo dpkg -i void-desktop_1.0.0_amd64.deb</div>
+              </div>
+              <p>Supports AppImage portability and native window shortcuts across GNOME, KDE, and other desktop environments.</p>
+            </div>
+            <div class="download-column">
+              <div class="download-card">
+                <h4>Linux AppImage</h4>
+                <p>Portable distribution package</p>
+                <a href="https://github.com/duhruh/void/releases/download/v1.0.0/Void-1.0.0.AppImage" class="btn-primary" style="display:inline-block; margin-bottom:12px;">Download AppImage</a>
+                <p style="margin-bottom:0;"><a href="https://github.com/duhruh/void/releases/download/v1.0.0/void-desktop_1.0.0_amd64.deb">Download .DEB Package</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documentation Section -->
+  <section class="docs-section" id="docs">
+    <div class="container docs-grid">
+      <div class="docs-card">
+        <h3>User Documentation</h3>
+        <p>Void wraps the standard <code>gopass</code> GPG-encrypted datastore located in <code>~/.local/share/gopass/stores</code> (or your custom directory). Any change you make inside Void translates directly into CLI actions on your disk store.</p>
+        
+        <h4 style="margin-bottom: 12px; margin-top: 24px;">Configuring Git Auto-Sync</h4>
+        <p>If your gopass store is paired with a remote Git repository (e.g. GitHub or self-hosted GitLab), toggle <strong>Auto Git Sync on changes</strong> inside <strong>Help > Settings</strong>. Void will trigger git commits, pushes, and pulls automatically after insertions or deletions.</p>
+
+        <h4 style="margin-bottom: 12px; margin-top: 24px;">Adding Custom Metadata</h4>
+        <p>Void supports key-value metadata rows. In the secret details editor, click <strong>Add Row</strong>, type your key (e.g. <code>username</code>, <code>url</code>, <code>pin</code>), and fill in the value. These values are saved inline inside the encrypted secret file.</p>
+      </div>
+
+      <div class="docs-card">
+        <h3>Keyboard Shortcuts reference</h3>
+        <p>Void includes custom in-app modifiers and global hotkey overrides. Default mappings include:</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Shortcut Combination</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Toggle Quick Access (Global)</td>
+              <td><code>Ctrl+Shift+P</code> / <code>Cmd+Shift+P</code></td>
+            </tr>
+            <tr>
+              <td>Toggle PW Generator (Global)</td>
+              <td><code>Ctrl+Shift+G</code> / <code>Cmd+Shift+G</code></td>
+            </tr>
+            <tr>
+              <td>Copy Password (In Quick Access)</td>
+              <td><code>Ctrl+C</code> / <code>Cmd+C</code></td>
+            </tr>
+            <tr>
+              <td>Copy Username (In Quick Access)</td>
+              <td><code>Alt+U</code> / <code>⌥+U</code></td>
+            </tr>
+            <tr>
+              <td>Copy TOTP (In Quick Access)</td>
+              <td><code>Alt+O</code> / <code>⌥+O</code></td>
+            </tr>
+            <tr>
+              <td>Edit Secret (In Quick Access)</td>
+              <td><code>Alt+E</code> / <code>⌥+E</code></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <p style="margin-top: 24px; font-size: 0.9rem; color: var(--color-outline);">💡 Custom shortcuts can be customized dynamically using the interactive recorder button under <strong>Help > Settings > Keyboard Shortcuts</strong>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 Void. Made with 💜 for secure GPG password stores.</p>
+      <p style="font-size: 0.8rem; color: var(--color-outline); margin-bottom: 24px;">Void is not affiliated with the official gopass development team, but wraps its secure CLI output.</p>
+      <div class="footer-links">
+        <a href="https://github.com/duhruh/void">GitHub Repository</a>
+        <a href="https://github.com/gopasspw/gopass">gopass Project</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function openTab(evt, tabId) {
+      const tabContents = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+      }
+      
+      const tabBtns = document.getElementsByClassName("tab-btn");
+      for (let i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+      }
+      
+      document.getElementById(tabId).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+  </script>
+</body>
+</html>
