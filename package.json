@@ -11,7 +11,55 @@
     "start": "electron .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:pack": "npm run build && electron-builder",
+    "pack:win": "electron-builder --windows",
+    "pack:mac": "electron-builder --mac",
+    "pack:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.void.desktop",
+    "productName": "Void",
+    "directories": {
+      "output": "dist-pack"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src/assets",
+        "to": "assets",
+        "filter": [
+          "*.png"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "src/assets/light_256.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "src/assets/light_256.png",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "src/assets/light_256.png",
+      "category": "Utility"
+    }
   },
   "keywords": [
     "gopass",
@@ -40,6 +88,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^30.0.1",
+    "electron-builder": "^26.8.1",
     "jsdom": "^29.1.1",
     "typescript": "^5.4.5",
     "vite": "^5.2.11",
