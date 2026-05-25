@@ -67,7 +67,7 @@
     "electron",
     "material-design-3"
   ],
-  "author": "David Rivera",
+  "author": "David Rivera <david@duhruh.com>",
   "license": "MIT",
   "dependencies": {
     "@emotion/react": "^11.11.4",
