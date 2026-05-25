@@ -10,6 +10,7 @@ export interface AppConfig {
     hide_on_blur: boolean;
     clipboard_purge_delay_seconds: number;
     global_hotkey: string;
+    show_dashboard_on_startup: boolean;
   };
   gopass_core: {
     executable_path: string;
@@ -41,6 +42,7 @@ const DEFAULT_CONFIG: AppConfig = {
     hide_on_blur: true,
     clipboard_purge_delay_seconds: 45,
     global_hotkey: 'CommandOrControl+Shift+P',
+    show_dashboard_on_startup: true,
   },
   gopass_core: {
     executable_path: 'gopass',

@@ -81,4 +81,28 @@ describe('Preload Bridge', () => {
     await configExposed.saveConfig(testConfig);
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('config:save', testConfig);
   });
+
+  it('should route windowControl methods to ipcRenderer.invoke', async () => {
+    await import('./preload');
+    
+    const mockCalls = vi.mocked(contextBridge.exposeInMainWorld).mock.calls;
+    const windowExposed = mockCalls.find(call => call[0] === 'windowControl')?.[1] as any;
+
+    expect(windowExposed).toBeDefined();
+
+    await windowExposed.hideQuickAccess();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:hide-quick-access');
+
+    await windowExposed.openDashboard();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:open-dashboard');
+
+    await windowExposed.minimize();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:minimize');
+
+    await windowExposed.maximize();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:maximize');
+
+    await windowExposed.close();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:close');
+  });
 });

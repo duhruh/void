@@ -30,6 +30,7 @@ describe('App component router', () => {
           hide_on_blur: true,
           clipboard_purge_delay_seconds: 45,
           global_hotkey: 'Ctrl+Shift+P',
+          show_dashboard_on_startup: true,
         },
         gopass_core: {
           executable_path: 'gopass',
@@ -56,9 +57,42 @@ describe('App component router', () => {
     });
   });
 
-  it('renders loading state initially', () => {
+  it('renders loading state initially', async () => {
+    let resolveConfig: any;
+    const promise = new Promise((resolve) => {
+      resolveConfig = resolve;
+    });
+    window.config.loadConfig = vi.fn().mockReturnValue(promise);
+
     render(<App />);
     expect(screen.getByText('Loading gopass-desktop...')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveConfig({
+        version: '1.0.0',
+        application: {
+          start_at_login: false,
+          hide_on_blur: true,
+          clipboard_purge_delay_seconds: 45,
+          global_hotkey: 'Ctrl+Shift+P',
+          show_dashboard_on_startup: true,
+        },
+        gopass_core: {
+          executable_path: 'gopass',
+          auto_sync_on_write: true,
+          default_store: 'root',
+        },
+        theme: {
+          mode: 'system',
+          profile: 'custom',
+          allow_dynamic_system_accent: true,
+          custom_profile_seed: {
+            light: { seed_color: '#6750A4', tokens: {} },
+            dark: { seed_color: '#D0BCFF', tokens: {} },
+          },
+        },
+      });
+    });
   });
 
   it('renders Dashboard component by default after config loads', async () => {

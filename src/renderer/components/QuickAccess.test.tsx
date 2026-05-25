@@ -12,6 +12,7 @@ describe('QuickAccess Component', () => {
       hide_on_blur: true,
       clipboard_purge_delay_seconds: 45,
       global_hotkey: 'Ctrl+Shift+P',
+      show_dashboard_on_startup: true,
     },
     gopass_core: {
       executable_path: 'gopass',

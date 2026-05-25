@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTheme } from '@mui/material/styles';
 import {
   Box,
   Typography,
@@ -22,6 +23,8 @@ import {
   RadioGroup,
   Radio,
   Tooltip,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/FolderOutlined';
 import OpenFolderIcon from '@mui/icons-material/FolderOpenOutlined';
@@ -41,6 +44,8 @@ import GenerateIcon from '@mui/icons-material/AutorenewOutlined';
 
 import { AppConfig } from '../../main/config';
 import { SecretData } from '../../main/gopass';
+import lightIcon from '../../assets/light.svg';
+import darkIcon from '../../assets/dark.svg';
 
 interface DashboardProps {
   config: AppConfig;
@@ -48,6 +53,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ config, setConfig }: DashboardProps) {
+  const theme = useTheme();
   const [secrets, setSecrets] = useState<string[]>([]);
   const [folderQuery, setFolderQuery] = useState('');
   const [secretQuery, setSecretQuery] = useState('');
@@ -69,6 +75,12 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const [syncStatus, setSyncStatus] = useState<'clean' | 'syncing' | 'error'>('clean');
   const [syncError, setSyncError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Custom Menu Bar States
+  const [fileMenuAnchor, setFileMenuAnchor] = useState<null | HTMLElement>(null);
+  const [editMenuAnchor, setEditMenuAnchor] = useState<null | HTMLElement>(null);
+  const [helpMenuAnchor, setHelpMenuAnchor] = useState<null | HTMLElement>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Entropy Generator state
   const [pwdLength, setPwdLength] = useState(16);
@@ -322,8 +334,103 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     }
   };
 
+  const isDarkMode = theme.palette.mode === 'dark';
+  const appIcon = isDarkMode ? darkIcon : lightIcon;
+
   return (
-    <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+      
+      {/* Window custom title bar */}
+      <Box className="window-titlebar">
+        <Box className="window-titlebar-left">
+          <img src={appIcon} alt="Logo" style={{ width: 18, height: 18 }} />
+          <Typography className="window-titlebar-title" sx={{ mr: 2 }}>gopass-desktop</Typography>
+          
+          {/* Custom Menu Bar Options */}
+          <Box className="window-titlebar-menu" sx={{ display: 'flex', gap: 0.5, WebkitAppRegion: 'no-drag' }}>
+            <Button
+              size="small"
+              onClick={(e) => setFileMenuAnchor(e.currentTarget)}
+              sx={{
+                px: 1.5,
+                py: 0.25,
+                minWidth: 'auto',
+                fontSize: '12px',
+                color: 'var(--color-on-surface-variant)',
+                borderRadius: '6px',
+                height: '26px',
+                fontWeight: 500,
+                textTransform: 'none',
+                backgroundColor: 'transparent',
+                '&:hover': {
+                  backgroundColor: 'rgba(103, 80, 164, 0.08)',
+                  color: 'var(--color-on-surface)',
+                }
+              }}
+            >
+              File
+            </Button>
+            <Button
+              size="small"
+              onClick={(e) => setEditMenuAnchor(e.currentTarget)}
+              sx={{
+                px: 1.5,
+                py: 0.25,
+                minWidth: 'auto',
+                fontSize: '12px',
+                color: 'var(--color-on-surface-variant)',
+                borderRadius: '6px',
+                height: '26px',
+                fontWeight: 500,
+                textTransform: 'none',
+                backgroundColor: 'transparent',
+                '&:hover': {
+                  backgroundColor: 'rgba(103, 80, 164, 0.08)',
+                  color: 'var(--color-on-surface)',
+                }
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              size="small"
+              onClick={(e) => setHelpMenuAnchor(e.currentTarget)}
+              sx={{
+                px: 1.5,
+                py: 0.25,
+                minWidth: 'auto',
+                fontSize: '12px',
+                color: 'var(--color-on-surface-variant)',
+                borderRadius: '6px',
+                height: '26px',
+                fontWeight: 500,
+                textTransform: 'none',
+                backgroundColor: 'transparent',
+                '&:hover': {
+                  backgroundColor: 'rgba(103, 80, 164, 0.08)',
+                  color: 'var(--color-on-surface)',
+                }
+              }}
+            >
+              Help
+            </Button>
+          </Box>
+        </Box>
+        <Box className="window-titlebar-controls">
+          <Box className="window-titlebar-btn" onClick={() => window.windowControl.minimize()}>
+            <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1.5"/></svg>
+          </Box>
+          <Box className="window-titlebar-btn" onClick={() => window.windowControl.maximize()}>
+            <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+          </Box>
+          <Box className="window-titlebar-btn close" onClick={() => window.windowControl.close()}>
+            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M 1,1 L 9,9 M 9,1 L 1,9" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Rest of the Dashboard layout */}
+      <Box className="window-content" sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       
       {/* PANE 1: Navigation Tree (Left Pane) */}
       <Box
@@ -746,12 +853,139 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         onSave={handleSaveSettings}
       />
 
+      {/* File Menu */}
+      <Menu
+        anchorEl={fileMenuAnchor}
+        open={Boolean(fileMenuAnchor)}
+        onClose={() => setFileMenuAnchor(null)}
+        sx={{
+          '& .MuiPaper-root': {
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: 'var(--elevation-2)',
+            borderRadius: '8px',
+            mt: 0.5,
+          }
+        }}
+      >
+        <MenuItem
+          onClick={() => { setFileMenuAnchor(null); handleAddNewSecret(); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          New Secret
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setFileMenuAnchor(null); handleSyncSecrets(); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Git Sync
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setFileMenuAnchor(null); setSettingsOpen(true); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Settings
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          onClick={() => { setFileMenuAnchor(null); window.windowControl.close(); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Exit
+        </MenuItem>
+      </Menu>
+
+      {/* Edit Menu */}
+      <Menu
+        anchorEl={editMenuAnchor}
+        open={Boolean(editMenuAnchor)}
+        onClose={() => setEditMenuAnchor(null)}
+        sx={{
+          '& .MuiPaper-root': {
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: 'var(--elevation-2)',
+            borderRadius: '8px',
+            mt: 0.5,
+          }
+        }}
+      >
+        <MenuItem
+          disabled={!activeSecret.password}
+          onClick={() => {
+            setEditMenuAnchor(null);
+            if (activeSecret.password) {
+              navigator.clipboard.writeText(activeSecret.password);
+            }
+          }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Copy Password
+        </MenuItem>
+        <MenuItem
+          disabled={!selectedSecretPath}
+          onClick={() => { setEditMenuAnchor(null); handleDeleteSecret(); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Delete Secret
+        </MenuItem>
+      </Menu>
+
+      {/* Help Menu */}
+      <Menu
+        anchorEl={helpMenuAnchor}
+        open={Boolean(helpMenuAnchor)}
+        onClose={() => setHelpMenuAnchor(null)}
+        sx={{
+          '& .MuiPaper-root': {
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: 'var(--elevation-2)',
+            borderRadius: '8px',
+            mt: 0.5,
+          }
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            setHelpMenuAnchor(null);
+            alert(`Quick Access Global Hotkey: ${config.application.global_hotkey}`);
+          }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Quick Access Info
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setHelpMenuAnchor(null); setAboutOpen(true); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          About
+        </MenuItem>
+      </Menu>
+
+      {/* About Dialog */}
+      <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>About gopass-desktop</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 1 }}>
+          <img src={appIcon} alt="Logo" style={{ width: 64, height: 64 }} />
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>gopass-desktop</Typography>
+          <Typography variant="body2" sx={{ color: 'var(--color-outline)' }}>Version {config.version}</Typography>
+          <Typography variant="body2" align="center">
+            A beautiful, secure, Material Design 3 cross-platform GUI wrapper for the gopass CLI.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ padding: '16px' }}>
+          <Button onClick={() => setAboutOpen(false)} variant="contained">Close</Button>
+        </DialogActions>
+      </Dialog>
+
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
       `}</style>
+      </Box>
     </Box>
   );
 }
@@ -782,6 +1016,13 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
     setLocalConfig((prev) => ({
       ...prev,
       gopass_core: { ...prev.gopass_core, auto_sync_on_write: val },
+    }));
+  };
+
+  const handleToggleStartupDashboard = (val: boolean) => {
+    setLocalConfig((prev) => ({
+      ...prev,
+      application: { ...prev.application, show_dashboard_on_startup: val },
     }));
   };
 
@@ -816,6 +1057,21 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
               />
             }
             label={<Typography variant="body2">Auto Git Sync on changes (write/delete)</Typography>}
+          />
+        </Box>
+
+        {/* Onboarding Settings */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Startup Behavior</Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={localConfig.application.show_dashboard_on_startup}
+                onChange={(e) => handleToggleStartupDashboard(e.target.checked)}
+              />
+            }
+            label={<Typography variant="body2">Show Dashboard on application startup</Typography>}
           />
         </Box>
 

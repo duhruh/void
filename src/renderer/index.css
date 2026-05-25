@@ -198,3 +198,62 @@ input, textarea, button {
   color: var(--color-on-primary-container);
   font-weight: 500;
 }
+
+/* Custom Frameless Window Title Bar styling */
+.window-titlebar {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background-color: var(--color-surface-variant);
+  border-bottom: 1px solid var(--glass-border);
+  -webkit-app-region: drag;
+  justify-content: space-between;
+}
+
+.window-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.window-titlebar-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-on-surface);
+}
+
+.window-titlebar-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.window-titlebar-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-on-surface-variant);
+  transition: background-color var(--transition-short), color var(--transition-short);
+}
+
+.window-titlebar-btn:hover {
+  background-color: rgba(103, 80, 164, 0.12);
+  color: var(--color-on-surface);
+}
+
+.window-titlebar-btn.close:hover {
+  background-color: #ba1a1a;
+  color: #ffffff;
+}
+
+/* Ensure other interactive regions are not draggable */
+.window-content, input, button, select, textarea, [role="button"], .nav-tree-item, .MuiListItem-root, .MuiButtonBase-root, .MuiSlider-root {
+  -webkit-app-region: no-drag;
+}

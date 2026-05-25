@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, net } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, net, nativeTheme } from 'electron';
 import * as path from 'path';
 import { loadConfig, saveConfig, AppConfig } from './config';
 import {
@@ -14,6 +14,32 @@ let quickAccessWindow: BrowserWindow | null = null;
 let dashboardWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentConfig: AppConfig;
+
+function getAppIconPath(mode: string): string {
+  const isDark = mode === 'dark' || (mode === 'system' && nativeTheme.shouldUseDarkColors);
+  const iconName = isDark ? 'dark.svg' : 'light.svg';
+  
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'assets', iconName);
+  } else {
+    return path.resolve(__dirname, '../../src/assets', iconName);
+  }
+}
+
+function updateAppIcons() {
+  const iconPath = getAppIconPath(currentConfig.theme.mode);
+  const icon = nativeImage.createFromPath(iconPath);
+
+  if (tray) {
+    tray.setImage(icon.resize({ width: 16, height: 16 }));
+  }
+  if (dashboardWindow) {
+    dashboardWindow.setIcon(icon);
+  }
+  if (quickAccessWindow) {
+    quickAccessWindow.setIcon(icon);
+  }
+}
 
 function checkDevServer(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -59,7 +85,8 @@ const TRAY_ICON_BASE64 =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAP0lEQVR42mNkoBAwUqifAWwgZGBg+M9AIWAcNYCBYdQABoZRABgGIIXRgEUBowEwDAwGwCgwGACjwGAAjAJCBgYAH98ED3gLqioAAAAASUVORK5CYII=';
 
 function createTray() {
-  const icon = nativeImage.createFromDataURL(TRAY_ICON_BASE64);
+  const iconPath = getAppIconPath(currentConfig.theme.mode);
+  const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
   
   const contextMenu = Menu.buildFromTemplate([
@@ -77,6 +104,7 @@ function createTray() {
 }
 
 function createQuickAccessWindow(useDevServer: boolean) {
+  const iconPath = getAppIconPath(currentConfig.theme.mode);
   quickAccessWindow = new BrowserWindow({
     width: 600,
     height: 450,
@@ -86,6 +114,7 @@ function createQuickAccessWindow(useDevServer: boolean) {
     show: false,
     skipTaskbar: true,
     transparent: true,
+    icon: nativeImage.createFromPath(iconPath),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -113,13 +142,16 @@ function createQuickAccessWindow(useDevServer: boolean) {
 }
 
 function createDashboardWindow(useDevServer: boolean) {
+  const iconPath = getAppIconPath(currentConfig.theme.mode);
   dashboardWindow = new BrowserWindow({
     width: 1000,
     height: 700,
     minWidth: 800,
     minHeight: 600,
     show: false,
+    frame: false,
     title: 'gopass-desktop Dashboard',
+    icon: nativeImage.createFromPath(iconPath),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -226,6 +258,7 @@ function setupIpcHandlers() {
     }
     saveConfig(config);
     registerGlobalShortcut();
+    updateAppIcons();
   });
 
   ipcMain.handle('win:hide-quick-access', async () => {
@@ -235,10 +268,29 @@ function setupIpcHandlers() {
   ipcMain.handle('win:open-dashboard', async () => {
     showDashboard();
   });
+
+  ipcMain.handle('win:minimize', async () => {
+    dashboardWindow?.minimize();
+  });
+
+  ipcMain.handle('win:maximize', async () => {
+    if (dashboardWindow) {
+      if (dashboardWindow.isMaximized()) {
+        dashboardWindow.unmaximize();
+      } else {
+        dashboardWindow.maximize();
+      }
+    }
+  });
+
+  ipcMain.handle('win:close', async () => {
+    dashboardWindow?.close();
+  });
 }
 
 // App lifecycle
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null);
   currentConfig = loadConfig();
   if (currentConfig.gopass_core.executable_path) {
     setGopassPath(currentConfig.gopass_core.executable_path);
@@ -252,8 +304,15 @@ app.whenReady().then(async () => {
   registerGlobalShortcut();
   setupIpcHandlers();
 
-  // If not starting minimized/hidden, open quick access or dashboard
-  if (!currentConfig.application.start_at_login) {
+  // Handle OS theme changes dynamically
+  nativeTheme.on('updated', () => {
+    if (currentConfig.theme.mode === 'system') {
+      updateAppIcons();
+    }
+  });
+
+  // If enabled in configurations, show dashboard on startup (defaults to true)
+  if (currentConfig.application.show_dashboard_on_startup) {
     showDashboard();
   }
 });

@@ -12,6 +12,7 @@ vi.mock('./config', () => {
         hide_on_blur: true,
         clipboard_purge_delay_seconds: 45,
         global_hotkey: 'CommandOrControl+Shift+P',
+        show_dashboard_on_startup: true,
       },
       gopass_core: {
         executable_path: 'gopass',
@@ -73,11 +74,19 @@ vi.mock('electron', () => {
     ipcMain: {
       handle: vi.fn(),
     },
+    nativeTheme: {
+      shouldUseDarkColors: false,
+      on: vi.fn(),
+    },
     Tray: vi.fn().mockImplementation(() => mockTray),
     Menu: {
       buildFromTemplate: vi.fn().mockReturnValue({}),
+      setApplicationMenu: vi.fn(),
     },
     nativeImage: {
+      createFromPath: vi.fn().mockReturnValue({
+        resize: vi.fn().mockReturnThis(),
+      }),
       createFromDataURL: vi.fn().mockReturnValue({
         resize: vi.fn().mockReturnThis(),
       }),

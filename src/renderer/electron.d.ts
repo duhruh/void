@@ -22,6 +22,9 @@ declare global {
     windowControl: {
       hideQuickAccess(): Promise<void>;
       openDashboard(): Promise<void>;
+      minimize(): Promise<void>;
+      maximize(): Promise<void>;
+      close(): Promise<void>;
       onShowQuickAccess(callback: () => void): () => void;
     };
   }

@@ -12,6 +12,7 @@ describe('Dashboard Component', () => {
       hide_on_blur: true,
       clipboard_purge_delay_seconds: 45,
       global_hotkey: 'Ctrl+Shift+P',
+      show_dashboard_on_startup: true,
     },
     gopass_core: {
       executable_path: 'gopass',
@@ -112,5 +113,25 @@ describe('Dashboard Component', () => {
     });
 
     expect(window.gopass.syncSecrets).toHaveBeenCalled();
+  });
+
+  it('renders custom menu bar and opens help menu options', async () => {
+    await act(async () => {
+      render(<Dashboard config={mockConfig} setConfig={mockSetConfig} />);
+    });
+
+    // Check menu buttons exist in custom title bar
+    expect(screen.getByText('File')).toBeInTheDocument();
+    expect(screen.getByText('Edit')).toBeInTheDocument();
+    expect(screen.getByText('Help')).toBeInTheDocument();
+
+    // Click Help to open menu dropdown
+    const helpButton = screen.getByText('Help');
+    await act(async () => {
+      fireEvent.click(helpButton);
+    });
+
+    // About item should show up in menu
+    expect(screen.getByText('About')).toBeInTheDocument();
   });
 });

@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('config', {
 contextBridge.exposeInMainWorld('windowControl', {
   hideQuickAccess: (): Promise<void> => ipcRenderer.invoke('win:hide-quick-access'),
   openDashboard: (): Promise<void> => ipcRenderer.invoke('win:open-dashboard'),
+  minimize: (): Promise<void> => ipcRenderer.invoke('win:minimize'),
+  maximize: (): Promise<void> => ipcRenderer.invoke('win:maximize'),
+  close: (): Promise<void> => ipcRenderer.invoke('win:close'),
   onShowQuickAccess: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('quick-access:show', listener);
