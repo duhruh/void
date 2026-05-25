@@ -337,6 +337,25 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const isDarkMode = theme.palette.mode === 'dark';
   const appIcon = isDarkMode ? darkIcon : lightIcon;
 
+  // Helper to format center status bar text and action mode
+  const getStatusInfo = () => {
+    if (isCreatingNew) {
+      return { status: 'Creating', pathText: newSecretPath || 'New Secret' };
+    }
+    if (!selectedSecretPath) return null;
+    
+    const status = isEditing ? 'Editing' : 'Viewing';
+    if (selectedSecretPath.length > 35) {
+      const parts = selectedSecretPath.split('/');
+      if (parts.length > 2) {
+        return { status, pathText: `${parts[0]}/.../${parts[parts.length - 1]}` };
+      }
+    }
+    return { status, pathText: selectedSecretPath };
+  };
+
+  const statusInfo = getStatusInfo();
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
@@ -347,6 +366,61 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           WebkitAppRegion: (fileMenuAnchor || editMenuAnchor || helpMenuAnchor) ? 'no-drag' : 'drag'
         }}
       >
+        {/* Center Section: Active Secret Status */}
+        {statusInfo && (
+          <Box
+            className="window-titlebar-center"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              zIndex: 5
+            }}
+          >
+            <Box
+              sx={{
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                px: 1,
+                py: 0.25,
+                borderRadius: '4px',
+                backgroundColor: statusInfo.status === 'Viewing'
+                  ? 'rgba(103, 80, 164, 0.08)'
+                  : statusInfo.status === 'Editing'
+                    ? 'rgba(235, 143, 111, 0.15)'
+                    : 'rgba(56, 238, 154, 0.15)',
+                color: statusInfo.status === 'Viewing'
+                  ? 'var(--color-primary)'
+                  : statusInfo.status === 'Editing'
+                    ? '#eb8f6f'
+                    : '#38ee9a',
+                border: '1px solid currentColor',
+                lineHeight: 1
+              }}
+            >
+              {statusInfo.status}
+            </Box>
+            <Typography
+              sx={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--color-on-surface-variant)',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              {statusInfo.pathText}
+            </Typography>
+          </Box>
+        )}
+
         <Box className="window-titlebar-left">
           <img src={appIcon} alt="Logo" style={{ width: 18, height: 18 }} />
           <Typography className="window-titlebar-title" sx={{ mr: 2 }}>Void</Typography>

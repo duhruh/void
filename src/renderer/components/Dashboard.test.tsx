@@ -103,7 +103,7 @@ describe('Dashboard Component', () => {
     expect(window.gopass.showSecret).toHaveBeenCalledWith('personal/banking/chase');
 
     // Pane 3 should display secret path and detail editor fields
-    expect(screen.getByText('personal/banking/chase')).toBeInTheDocument();
+    expect(screen.getAllByText('personal/banking/chase')[0]).toBeInTheDocument();
     expect(screen.getByDisplayValue('testuser')).toBeInTheDocument();
     expect(screen.getByDisplayValue('secure notes content')).toBeInTheDocument();
   });
