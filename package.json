@@ -2,7 +2,7 @@
   "name": "gopass-desktop",
   "version": "1.0.0",
   "description": "Material Design 3 GUI Wrapper for gopass CLI",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "vite",
     "build:electron": "tsc -p tsconfig.electron.json",

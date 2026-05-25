@@ -28,3 +28,5 @@ prd.pdf
 .gemini/
 .idea/
 .vscode/
+test-results/
+playwright-report/

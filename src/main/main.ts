@@ -58,9 +58,9 @@ function createQuickAccessWindow() {
   quickAccessWindow.setContentProtection(true);
 
   const devServerUrl = 'http://localhost:5173/#/quick-access';
-  const localFilePath = `file://${path.join(__dirname, '../dist/index.html')}#/quick-access`;
+  const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/quick-access`;
 
-  if (app.isPackaged) {
+  if (app.isPackaged || process.env.E2E_TEST === 'true') {
     quickAccessWindow.loadURL(localFilePath);
   } else {
     quickAccessWindow.loadURL(devServerUrl);
@@ -92,17 +92,17 @@ function createDashboardWindow() {
   dashboardWindow.setContentProtection(true);
 
   const devServerUrl = 'http://localhost:5173/#/dashboard';
-  const localFilePath = `file://${path.join(__dirname, '../dist/index.html')}#/dashboard`;
+  const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/dashboard`;
 
-  if (app.isPackaged) {
+  if (app.isPackaged || process.env.E2E_TEST === 'true') {
     dashboardWindow.loadURL(localFilePath);
   } else {
     dashboardWindow.loadURL(devServerUrl);
   }
 
-  // Prevent app from quitting on dashboard close, just hide it
+  // Prevent app from quitting on dashboard close, just hide it (except in E2E tests)
   dashboardWindow.on('close', (e) => {
-    if (!app.isQuitting) {
+    if (!(app as any).isQuitting && process.env.E2E_TEST !== 'true') {
       e.preventDefault();
       dashboardWindow?.hide();
     }
@@ -142,7 +142,7 @@ function registerGlobalShortcut() {
 }
 
 function quitApp() {
-  app.isQuitting = true;
+  (app as any).isQuitting = true;
   globalShortcut.unregisterAll();
   app.quit();
 }
@@ -228,9 +228,4 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Declare custom property on app to track quitting state
-declare module 'electron' {
-  interface App {
-    isQuitting?: boolean;
-  }
-}
+// Clean exit handler
