@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, net } from 'electron';
 import * as path from 'path';
 import { loadConfig, saveConfig, AppConfig } from './config';
 import {
@@ -14,6 +14,45 @@ let quickAccessWindow: BrowserWindow | null = null;
 let dashboardWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentConfig: AppConfig;
+
+function checkDevServer(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const request = net.request({
+      method: 'GET',
+      protocol: 'http:',
+      hostname: 'localhost',
+      port: 5173,
+      path: '/'
+    });
+    
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        request.abort();
+        resolve(false);
+      }
+    }, 200);
+
+    request.on('response', () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(true);
+      }
+    });
+    
+    request.on('error', () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(false);
+      }
+    });
+    
+    request.end();
+  });
+}
 
 // A simple base64-encoded 16x16 PNG key icon for the tray
 const TRAY_ICON_BASE64 = 
@@ -37,7 +76,7 @@ function createTray() {
   });
 }
 
-function createQuickAccessWindow() {
+function createQuickAccessWindow(useDevServer: boolean) {
   quickAccessWindow = new BrowserWindow({
     width: 600,
     height: 450,
@@ -60,10 +99,10 @@ function createQuickAccessWindow() {
   const devServerUrl = 'http://localhost:5173/#/quick-access';
   const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/quick-access`;
 
-  if (app.isPackaged || process.env.E2E_TEST === 'true') {
-    quickAccessWindow.loadURL(localFilePath);
-  } else {
+  if (useDevServer && !app.isPackaged) {
     quickAccessWindow.loadURL(devServerUrl);
+  } else {
+    quickAccessWindow.loadURL(localFilePath);
   }
 
   quickAccessWindow.on('blur', () => {
@@ -73,7 +112,7 @@ function createQuickAccessWindow() {
   });
 }
 
-function createDashboardWindow() {
+function createDashboardWindow(useDevServer: boolean) {
   dashboardWindow = new BrowserWindow({
     width: 1000,
     height: 700,
@@ -94,10 +133,10 @@ function createDashboardWindow() {
   const devServerUrl = 'http://localhost:5173/#/dashboard';
   const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/dashboard`;
 
-  if (app.isPackaged || process.env.E2E_TEST === 'true') {
-    dashboardWindow.loadURL(localFilePath);
-  } else {
+  if (useDevServer && !app.isPackaged) {
     dashboardWindow.loadURL(devServerUrl);
+  } else {
+    dashboardWindow.loadURL(localFilePath);
   }
 
   // Prevent app from quitting on dashboard close, just hide it (except in E2E tests)
@@ -199,15 +238,17 @@ function setupIpcHandlers() {
 }
 
 // App lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   currentConfig = loadConfig();
   if (currentConfig.gopass_core.executable_path) {
     setGopassPath(currentConfig.gopass_core.executable_path);
   }
 
+  const useDevServer = await checkDevServer();
+
   createTray();
-  createQuickAccessWindow();
-  createDashboardWindow();
+  createQuickAccessWindow(useDevServer);
+  createDashboardWindow(useDevServer);
   registerGlobalShortcut();
   setupIpcHandlers();
 

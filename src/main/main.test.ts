@@ -82,6 +82,16 @@ vi.mock('electron', () => {
         resize: vi.fn().mockReturnThis(),
       }),
     },
+    net: {
+      request: vi.fn().mockReturnValue({
+        on: vi.fn((event, cb) => {
+          // Immediately invoke error callback to resolve checkDevServer to false
+          if (event === 'error') cb(new Error('Connection refused'));
+        }),
+        end: vi.fn(),
+        abort: vi.fn(),
+      }),
+    },
   };
 });
 
@@ -109,7 +119,7 @@ describe('Main Process Entry', () => {
     // Trigger the whenReady hook
     expect(whenReadyCallback).toBeDefined();
     if (whenReadyCallback) {
-      (whenReadyCallback as () => void)();
+      await (whenReadyCallback as () => Promise<void>)();
     }
 
     // Verify config is loaded
