@@ -226,12 +226,11 @@
     .app-preview-card {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      padding: 16px;
+      border-radius: 16px;
+      padding: 0;
       box-shadow: var(--elevation-3);
       backdrop-filter: blur(12px);
       width: 100%;
-      height: 300px;
       display: flex;
       flex-direction: column;
       position: relative;
@@ -246,11 +245,10 @@
 
     .app-titlebar {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
+      padding: 10px 16px;
+      background: rgba(18, 16, 22, 0.5);
       border-bottom: 1px solid rgba(255,255,255,0.05);
-      margin-bottom: 12px;
     }
 
     .titlebar-dots {
@@ -265,47 +263,135 @@
       background: rgba(255,255,255,0.2);
     }
 
-    .app-body-mock {
-      display: flex;
+    .app-titlebar-title {
       flex-grow: 1;
-      gap: 12px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--color-on-surface-variant);
+      font-family: var(--font-heading);
+      font-weight: 500;
+      margin-left: -32px;
     }
 
-    .mock-pane-1 {
-      width: 30%;
-      background: rgba(255,255,255,0.02);
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.03);
-      padding: 12px;
+    .screenshot-img {
+      width: 100%;
+      display: block;
+      height: auto;
     }
 
-    .mock-pane-2 {
-      width: 70%;
-      background: rgba(255,255,255,0.03);
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.05);
-      padding: 16px;
+    /* Showcase Section */
+    .showcase {
+      padding: 100px 0;
+      background-color: var(--color-surface);
+      position: relative;
+    }
+
+    .showcase-gallery {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 64px;
+      margin-top: 48px;
     }
 
-    .mock-line {
-      height: 8px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 4px;
+    .showcase-item {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      background: var(--color-surface-variant);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 32px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
 
-    .mock-line.short { width: 40%; }
-    .mock-line.medium { width: 70%; }
-    .mock-line.long { width: 95%; }
+    .showcase-item:hover {
+      transform: translateY(-4px);
+      border-color: var(--color-primary);
+      box-shadow: 0 12px 40px rgba(143, 111, 216, 0.15);
+    }
 
-    .mock-search {
-      height: 32px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.08);
+    .showcase-item.large {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .showcase-grid-two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .window-frame {
+      background: #141218;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+
+    .window-frame.compact-frame {
+      max-width: 420px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .window-titlebar {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .window-title {
+      flex-grow: 1;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--color-on-surface-variant);
+      font-family: var(--font-heading);
+      font-weight: 500;
+      margin-left: -32px;
+    }
+
+    .window-content {
+      position: relative;
+      background: #0d0c10;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .showcase-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.5s ease;
+    }
+
+    .window-frame:hover .showcase-img {
+      transform: scale(1.02);
+    }
+
+    .showcase-details h3 {
+      font-size: 1.5rem;
       margin-bottom: 12px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #ffffff 0%, var(--color-primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .showcase-details p {
+      color: var(--color-on-surface-variant);
+      font-size: 1rem;
+      line-height: 1.6;
     }
 
     /* Features Section */
@@ -611,6 +697,7 @@
       </div>
       <nav>
         <a href="#features">Features</a>
+        <a href="#showcase">Showcase</a>
         <a href="#install">Install</a>
         <a href="#docs">Docs</a>
         <a href="https://github.com/duhruh/void" class="btn-github">
@@ -642,22 +729,9 @@
               <div class="titlebar-dot" style="background:#ffbd2e"></div>
               <div class="titlebar-dot" style="background:#27c93f"></div>
             </div>
-            <div class="mock-line short" style="opacity:0.3"></div>
+            <div class="app-titlebar-title">Void — Dashboard</div>
           </div>
-          <div class="mock-search"></div>
-          <div class="app-body-mock">
-            <div class="mock-pane-1">
-              <div class="mock-line short" style="margin-bottom:8px"></div>
-              <div class="mock-line medium" style="margin-bottom:8px; opacity:0.5"></div>
-              <div class="mock-line short" style="opacity:0.5"></div>
-            </div>
-            <div class="mock-pane-2">
-              <div class="mock-line medium"></div>
-              <div class="mock-line long" style="opacity:0.7"></div>
-              <div class="mock-line short" style="opacity:0.5"></div>
-              <div class="mock-line medium" style="opacity:0.4; margin-top:24px"></div>
-            </div>
-          </div>
+          <img src="assets/dashboard.png" alt="Void Dashboard" class="screenshot-img">
         </div>
       </div>
     </div>
@@ -701,6 +775,84 @@
           <h3>MD3 Theming</h3>
           <p>Buttery smooth themes that adapt to system defaults, offering both light and dark profiles paired with harmonious Material accents.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Showcase Section -->
+  <section class="showcase" id="showcase">
+    <div class="container">
+      <div class="section-title">
+        <h2>Interactive Interface</h2>
+        <p>Explore the clean, modern Material Design 3 interface tailored for ultimate productivity.</p>
+      </div>
+
+      <div class="showcase-gallery">
+        <!-- Dashboard Card -->
+        <div class="showcase-item large">
+          <div class="window-frame">
+            <div class="window-titlebar">
+              <div class="titlebar-dots">
+                <div class="titlebar-dot" style="background:#ff5f56"></div>
+                <div class="titlebar-dot" style="background:#ffbd2e"></div>
+                <div class="titlebar-dot" style="background:#27c93f"></div>
+              </div>
+              <span class="window-title">Void — Dashboard</span>
+            </div>
+            <div class="window-content">
+              <img src="assets/dashboard.png" alt="Void Main Dashboard" class="showcase-img">
+            </div>
+          </div>
+          <div class="showcase-details">
+            <h3>Unified Control Center</h3>
+            <p>A full three-pane dashboard layout. Easily navigate your secret folders on the left, filter and select items in the middle, and view/edit details, key-value metadata, or copy/reveal credentials on the right.</p>
+          </div>
+        </div>
+
+        <div class="showcase-grid-two">
+          <!-- Quick Access Card -->
+          <div class="showcase-item">
+            <div class="window-frame">
+              <div class="window-titlebar">
+                <div class="titlebar-dots">
+                  <div class="titlebar-dot" style="background:#ff5f56"></div>
+                  <div class="titlebar-dot" style="background:#ffbd2e"></div>
+                  <div class="titlebar-dot" style="background:#27c93f"></div>
+                </div>
+                <span class="window-title">Quick Search Overlay</span>
+              </div>
+              <div class="window-content">
+                <img src="assets/quick-access.png" alt="Quick Access Search Overlay" class="showcase-img">
+              </div>
+            </div>
+            <div class="showcase-details">
+              <h3>Floating Quick Access Search</h3>
+              <p>Invoke a search bar overlay globally with <code>Ctrl+Shift+P</code>. Perform fuzzy searches across all GPG keys, copy passwords instantly, and copy usernames or TOTP codes directly with quick shortcuts.</p>
+            </div>
+          </div>
+
+          <!-- Password Generator Card -->
+          <div class="showcase-item">
+            <div class="window-frame compact-frame">
+              <div class="window-titlebar">
+                <div class="titlebar-dots">
+                  <div class="titlebar-dot" style="background:#ff5f56"></div>
+                  <div class="titlebar-dot" style="background:#ffbd2e"></div>
+                  <div class="titlebar-dot" style="background:#27c93f"></div>
+                </div>
+                <span class="window-title">PW Generator</span>
+              </div>
+              <div class="window-content">
+                <img src="assets/pwgen.png" alt="Password Generator Overlay" class="showcase-img">
+              </div>
+            </div>
+            <div class="showcase-details">
+              <h3>On-the-Fly Password Generator</h3>
+              <p>Generate highly secure cryptographically random passwords via <code>Ctrl+Shift+G</code>. Hit Space to re-roll settings and Enter to copy and dismiss instantly. Custom bounds ensure no text overflow.</p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
