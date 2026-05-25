@@ -10,8 +10,8 @@
 
 <p align="center">
   <a href="https://github.com/duhruh/void/actions/workflows/build-and-release.yml"><img src="https://github.com/duhruh/void/actions/workflows/build-and-release.yml/badge.svg" alt="Build Status"></a>
-  <a href="https://github.com/duhruh/void/releases"><img src="https://img.shields.io/github/v/release/duhruh/void?color=6750A4&style=flat-square" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/duhruh/void?color=blue&style=flat-square" alt="License"></a>
+  <a href="https://github.com/duhruh/void/releases"><img src="https://img.shields.io/badge/release-v1.0.0-6750A4?style=flat-square" alt="Latest Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <a href="https://github.com/gopasspw/gopass"><img src="https://img.shields.io/badge/dependency-gopass-00BCD4?style=flat-square" alt="Gopass Dependency"></a>
 </p>
 
