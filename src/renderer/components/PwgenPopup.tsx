@@ -106,6 +106,7 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
           boxShadow: 'var(--elevation-3)',
           border: '1px solid var(--glass-border)',
           boxSizing: 'border-box',
+          overflow: 'hidden',
         }}
       >
         <Typography
@@ -125,7 +126,7 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
           variant="h5"
           sx={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '1.25rem',
+            fontSize: password.length > 25 ? '0.9rem' : password.length > 15 ? '1.1rem' : '1.25rem',
             fontWeight: 500,
             letterSpacing: '0.05em',
             color: password === 'Generating...' ? 'var(--color-outline)' : 'var(--color-primary)',
@@ -134,10 +135,14 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
             px: 2,
             borderRadius: '8px',
             width: '100%',
+            maxWidth: '100%',
+            maxHeight: '64px',
+            overflowY: 'auto',
             textAlign: 'center',
             wordBreak: 'break-all',
             mb: 1.5,
             userSelect: 'text',
+            boxSizing: 'border-box',
           }}
         >
           {password}
