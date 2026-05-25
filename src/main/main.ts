@@ -105,7 +105,7 @@ function createTray() {
   tray.setToolTip('Void');
   tray.setContextMenu(contextMenu);
   tray.on('double-click', () => {
-    toggleQuickAccess();
+    showDashboard();
   });
 }
 
@@ -192,7 +192,7 @@ function createPwgenWindow(useDevServer: boolean) {
   const iconPath = getAppIconPath(currentConfig.theme.mode, 'window');
   pwgenWindow = new BrowserWindow({
     width: 400,
-    height: 180,
+    height: 220,
     frame: false,
     resizable: false,
     alwaysOnTop: true,
@@ -285,6 +285,19 @@ function quitApp() {
   app.quit();
 }
 
+function applyLoginSettings(config: AppConfig) {
+  try {
+    if (app.isPackaged) {
+      app.setLoginItemSettings({
+        openAtLogin: config.application.start_at_login,
+        path: app.getPath('exe'),
+      });
+    }
+  } catch (err) {
+    console.error('Failed to set login item settings:', err);
+  }
+}
+
 // Binds IPC signals
 function setupIpcHandlers() {
   ipcMain.handle('gopass:list', async () => {
@@ -326,6 +339,12 @@ function setupIpcHandlers() {
     saveConfig(config);
     registerGlobalShortcut();
     updateAppIcons();
+    applyLoginSettings(config);
+
+    // Broadcast config change to all windows
+    quickAccessWindow?.webContents.send('config:changed', config);
+    pwgenWindow?.webContents.send('config:changed', config);
+    dashboardWindow?.webContents.send('config:changed', config);
   });
 
   ipcMain.handle('win:hide-quick-access', async () => {
@@ -371,6 +390,7 @@ app.whenReady().then(async () => {
   if (currentConfig.gopass_core.executable_path) {
     setGopassPath(currentConfig.gopass_core.executable_path);
   }
+  applyLoginSettings(currentConfig);
 
   const useDevServer = await checkDevServer();
 

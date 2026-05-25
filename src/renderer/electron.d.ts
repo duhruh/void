@@ -19,6 +19,7 @@ declare global {
     config: {
       loadConfig(): Promise<AppConfig>;
       saveConfig(config: AppConfig): Promise<void>;
+      onConfigChanged(callback: (config: AppConfig) => void): () => void;
     };
     windowControl: {
       hideQuickAccess(): Promise<void>;

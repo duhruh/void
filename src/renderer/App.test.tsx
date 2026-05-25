@@ -48,6 +48,7 @@ describe('App component router', () => {
         },
       }),
       saveConfig: vi.fn(),
+      onConfigChanged: vi.fn().mockReturnValue(vi.fn()),
     };
 
     window.matchMedia = vi.fn().mockReturnValue({

@@ -1168,16 +1168,33 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
         {/* Onboarding Settings */}
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Startup Behavior</Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={localConfig.application.show_dashboard_on_startup}
-                onChange={(e) => handleToggleStartupDashboard(e.target.checked)}
-              />
-            }
-            label={<Typography variant="body2">Show Dashboard on application startup</Typography>}
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={localConfig.application.show_dashboard_on_startup}
+                  onChange={(e) => handleToggleStartupDashboard(e.target.checked)}
+                />
+              }
+              label={<Typography variant="body2">Show Dashboard on application startup</Typography>}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={localConfig.application.start_at_login}
+                  onChange={(e) =>
+                    setLocalConfig((prev) => ({
+                      ...prev,
+                      application: { ...prev.application, start_at_login: e.target.checked },
+                    }))
+                  }
+                />
+              }
+              label={<Typography variant="body2">Start Void on system startup (Login)</Typography>}
+            />
+          </Box>
         </Box>
 
         {/* Keyboard Shortcuts */}

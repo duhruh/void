@@ -82,12 +82,13 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
       sx={{
         width: '100vw',
         height: '100vh',
-        padding: '12px',
+        padding: '8px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
         background: 'transparent',
+        boxSizing: 'border-box',
       }}
     >
       <Paper
@@ -96,14 +97,15 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
         sx={{
           width: '100%',
           height: '100%',
-          borderRadius: '24px',
+          borderRadius: '16px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: '24px',
+          padding: '16px',
           boxShadow: 'var(--elevation-3)',
           border: '1px solid var(--glass-border)',
+          boxSizing: 'border-box',
         }}
       >
         <Typography
@@ -113,7 +115,7 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
             fontWeight: 600,
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
-            mb: 1.5,
+            mb: 1,
           }}
         >
           One-Time Password
@@ -123,30 +125,32 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
           variant="h5"
           sx={{
             fontFamily: 'var(--font-mono)',
+            fontSize: '1.25rem',
             fontWeight: 500,
             letterSpacing: '0.05em',
             color: password === 'Generating...' ? 'var(--color-outline)' : 'var(--color-primary)',
             backgroundColor: 'var(--color-surface-variant)',
-            py: 1.5,
-            px: 3,
-            borderRadius: '12px',
+            py: 1,
+            px: 2,
+            borderRadius: '8px',
             width: '100%',
             textAlign: 'center',
             wordBreak: 'break-all',
-            mb: 2.5,
+            mb: 1.5,
             userSelect: 'text',
           }}
         >
           {password}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 1.5, width: '100%' }}>
+        <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
           <Button
             variant="contained"
             fullWidth
             onClick={copyAndClose}
             startIcon={<CopyIcon />}
             sx={{
+              height: '36px',
               backgroundColor: copied ? '#4caf50' : 'var(--color-primary)',
               color: copied ? '#ffffff' : 'var(--color-on-primary)',
               '&:hover': {
@@ -162,9 +166,10 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
             onClick={generate}
             startIcon={<ReRollIcon />}
             sx={{
+              height: '36px',
               borderColor: 'var(--color-outline)',
               color: 'var(--color-on-surface)',
-              px: 3,
+              px: 2,
             }}
           >
             Re-roll (Space)

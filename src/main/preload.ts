@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld('gopass', {
 contextBridge.exposeInMainWorld('config', {
   loadConfig: (): Promise<AppConfig> => ipcRenderer.invoke('config:load'),
   saveConfig: (config: AppConfig): Promise<void> => ipcRenderer.invoke('config:save', config),
+  onConfigChanged: (callback: (config: AppConfig) => void) => {
+    const listener = (_event: any, newConfig: AppConfig) => callback(newConfig);
+    ipcRenderer.on('config:changed', listener);
+    return () => {
+      ipcRenderer.removeListener('config:changed', listener);
+    };
+  }
 });
 
 contextBridge.exposeInMainWorld('windowControl', {

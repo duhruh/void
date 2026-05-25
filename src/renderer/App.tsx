@@ -36,6 +36,11 @@ export default function App() {
       window.config.loadConfig().then((loadedConfig) => {
         setConfig(loadedConfig);
       });
+
+      const unsub = window.config.onConfigChanged((newConfig) => {
+        setConfig(newConfig);
+      });
+      return unsub;
     }
   }, []);
 

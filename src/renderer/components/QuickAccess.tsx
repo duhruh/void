@@ -27,7 +27,10 @@ const matchesShortcut = (e: React.KeyboardEvent, shortcutStr: string): boolean =
     eventKey = 'space';
   }
   
-  return ctrlOk && altOk && shiftOk && metaOk && eventKey === targetKey;
+  const codeKey = e.code.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.code.toLowerCase();
+  const keyMatches = eventKey === targetKey || codeKey === targetKey;
+  
+  return ctrlOk && altOk && shiftOk && metaOk && keyMatches;
 };
 
 const formatShortcutForDisplay = (shortcutStr: string): string => {
@@ -116,12 +119,23 @@ export default function QuickAccess({ config }: QuickAccessProps) {
       const data = await window.gopass.showSecret(path);
       let textToCopy = '';
 
+      const getMetaCaseInsensitive = (obj: Record<string, string> | undefined, targetKey: string) => {
+        if (!obj) return '';
+        const foundKey = Object.keys(obj).find(k => k.toLowerCase() === targetKey.toLowerCase());
+        return foundKey ? obj[foundKey] : '';
+      };
+
       if (type === 'password') {
         textToCopy = data.password;
       } else if (type === 'username') {
-        textToCopy = data.metadata.username || data.metadata.login || data.metadata.user || '';
+        textToCopy = getMetaCaseInsensitive(data.metadata, 'username') ||
+                     getMetaCaseInsensitive(data.metadata, 'login') ||
+                     getMetaCaseInsensitive(data.metadata, 'user') ||
+                     '';
       } else if (type === 'totp') {
-        textToCopy = data.metadata.totp || data.metadata.otp || '';
+        textToCopy = getMetaCaseInsensitive(data.metadata, 'totp') ||
+                     getMetaCaseInsensitive(data.metadata, 'otp') ||
+                     '';
       }
 
       if (textToCopy) {
