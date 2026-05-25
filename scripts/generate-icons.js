@@ -54,6 +54,16 @@ async function convert() {
       type: 'png'
     });
     console.log(`Generated ${png256Path}`);
+
+    // Generate 512x512 PNG for electron-builder Packaging Icon
+    await page.setViewportSize({ width: 512, height: 512 });
+    const png512Path = path.join(assetsDir, `${name}_512.png`);
+    await page.screenshot({
+      path: png512Path,
+      omitBackground: true,
+      type: 'png'
+    });
+    console.log(`Generated ${png512Path}`);
   }
   
   await browser.close();

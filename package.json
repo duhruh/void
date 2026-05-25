@@ -42,14 +42,14 @@
         "nsis",
         "portable"
       ],
-      "icon": "src/assets/light_256.png"
+      "icon": "src/assets/light_512.png"
     },
     "mac": {
       "target": [
         "dmg",
         "zip"
       ],
-      "icon": "src/assets/light_256.png",
+      "icon": "src/assets/light_512.png",
       "category": "public.app-category.utilities"
     },
     "linux": {
@@ -57,7 +57,7 @@
         "AppImage",
         "deb"
       ],
-      "icon": "src/assets/light_256.png",
+      "icon": "src/assets/light_512.png",
       "category": "Utility"
     }
   },
