@@ -1,0 +1,84 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { contextBridge, ipcRenderer } from 'electron';
+
+// Mock electron
+vi.mock('electron', () => {
+  return {
+    contextBridge: {
+      exposeInMainWorld: vi.fn(),
+    },
+    ipcRenderer: {
+      invoke: vi.fn(),
+      on: vi.fn(),
+      removeListener: vi.fn(),
+    },
+  };
+});
+
+describe('Preload Bridge', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('should expose API to main world', async () => {
+    // Import preload to trigger the code execution
+    await import('./preload');
+
+    expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('gopass', expect.any(Object));
+    expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('config', expect.any(Object));
+    expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('windowControl', expect.any(Object));
+  });
+
+  it('should route gopass methods to ipcRenderer.invoke', async () => {
+    await import('./preload');
+    
+    // Retrieve the exposed gopass object from mock calls
+    const mockCalls = vi.mocked(contextBridge.exposeInMainWorld).mock.calls;
+    const gopassExposed = mockCalls.find(call => call[0] === 'gopass')?.[1] as any;
+
+    expect(gopassExposed).toBeDefined();
+
+    // Test listSecrets
+    vi.mocked(ipcRenderer.invoke).mockResolvedValueOnce(['pwd1']);
+    const list = await gopassExposed.listSecrets();
+    expect(list).toEqual(['pwd1']);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('gopass:list');
+
+    // Test showSecret
+    vi.mocked(ipcRenderer.invoke).mockResolvedValueOnce({ password: '123' });
+    const secret = await gopassExposed.showSecret('my/path');
+    expect(secret).toEqual({ password: '123' });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('gopass:show', 'my/path');
+
+    // Test insertSecret
+    await gopassExposed.insertSecret('my/path', 'pwd', { u: 'admin' }, 'body');
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('gopass:insert', 'my/path', 'pwd', { u: 'admin' }, 'body');
+
+    // Test deleteSecret
+    await gopassExposed.deleteSecret('my/path');
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('gopass:delete', 'my/path');
+
+    // Test syncSecrets
+    await gopassExposed.syncSecrets();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('gopass:sync');
+  });
+
+  it('should route config methods to ipcRenderer.invoke', async () => {
+    await import('./preload');
+    
+    const mockCalls = vi.mocked(contextBridge.exposeInMainWorld).mock.calls;
+    const configExposed = mockCalls.find(call => call[0] === 'config')?.[1] as any;
+
+    expect(configExposed).toBeDefined();
+
+    vi.mocked(ipcRenderer.invoke).mockResolvedValueOnce({ version: '1.0' });
+    const loaded = await configExposed.loadConfig();
+    expect(loaded).toEqual({ version: '1.0' });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('config:load');
+
+    const testConfig = { version: '1.0' } as any;
+    await configExposed.saveConfig(testConfig);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('config:save', testConfig);
+  });
+});
