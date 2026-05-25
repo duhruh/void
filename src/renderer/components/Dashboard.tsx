@@ -366,61 +366,6 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           WebkitAppRegion: (fileMenuAnchor || editMenuAnchor || helpMenuAnchor) ? 'no-drag' : 'drag'
         }}
       >
-        {/* Center Section: Active Secret Status */}
-        {statusInfo && (
-          <Box
-            className="window-titlebar-center"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              pointerEvents: 'none',
-              userSelect: 'none',
-              zIndex: 5
-            }}
-          >
-            <Box
-              sx={{
-                fontSize: '10px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                px: 1,
-                py: 0.25,
-                borderRadius: '4px',
-                backgroundColor: statusInfo.status === 'Viewing'
-                  ? 'rgba(103, 80, 164, 0.08)'
-                  : statusInfo.status === 'Editing'
-                    ? 'rgba(235, 143, 111, 0.15)'
-                    : 'rgba(56, 238, 154, 0.15)',
-                color: statusInfo.status === 'Viewing'
-                  ? 'var(--color-primary)'
-                  : statusInfo.status === 'Editing'
-                    ? '#eb8f6f'
-                    : '#38ee9a',
-                border: '1px solid currentColor',
-                lineHeight: 1
-              }}
-            >
-              {statusInfo.status}
-            </Box>
-            <Typography
-              sx={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: 'var(--color-on-surface-variant)',
-                letterSpacing: '-0.01em'
-              }}
-            >
-              {statusInfo.pathText}
-            </Typography>
-          </Box>
-        )}
-
         <Box className="window-titlebar-left">
           <img src={appIcon} alt="Logo" style={{ width: 18, height: 18 }} />
           <Typography className="window-titlebar-title" sx={{ mr: 2 }}>Void</Typography>
@@ -495,6 +440,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             </Button>
           </Box>
         </Box>
+        
         <Box className="window-titlebar-controls">
           <Box className="window-titlebar-btn" onClick={() => window.windowControl.minimize()}>
             <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1.5"/></svg>
@@ -506,6 +452,62 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             <svg width="10" height="10" viewBox="0 0 10 10"><path d="M 1,1 L 9,9 M 9,1 L 1,9" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
           </Box>
         </Box>
+
+        {/* Center Section: Active Secret Status */}
+        {statusInfo && (
+          <Box
+            className="window-titlebar-center"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              zIndex: 5
+            }}
+          >
+            <Box
+              sx={{
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                px: 1,
+                py: 0.25,
+                borderRadius: '4px',
+                backgroundColor: statusInfo.status === 'Viewing'
+                  ? 'rgba(103, 80, 164, 0.08)'
+                  : statusInfo.status === 'Editing'
+                    ? 'rgba(235, 143, 111, 0.15)'
+                    : 'rgba(56, 238, 154, 0.15)',
+                color: statusInfo.status === 'Viewing'
+                  ? 'var(--color-primary)'
+                  : statusInfo.status === 'Editing'
+                    ? '#eb8f6f'
+                    : '#38ee9a',
+                border: '1px solid currentColor',
+                lineHeight: 1
+              }}
+            >
+              {statusInfo.status}
+            </Box>
+            <Typography
+              sx={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--color-on-surface-variant)',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              {statusInfo.pathText}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* Rest of the Dashboard layout */}
