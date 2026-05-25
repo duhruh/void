@@ -9,7 +9,8 @@ import {
   showSecret,
   insertSecret,
   deleteSecret,
-  syncSecrets
+  syncSecrets,
+  generatePassword
 } from './gopass';
 
 // Mock child_process
@@ -156,6 +157,13 @@ describe('gopass CLI wrapper', () => {
       mockSpawnSuccess('');
       await syncSecrets();
       expect(spawn).toHaveBeenCalledWith('gopass', ['sync'], expect.any(Object));
+    });
+
+    it('generatePassword should run pwgen command', async () => {
+      mockSpawnSuccess('random_generated_pwd');
+      const pwd = await generatePassword(['20', '-n']);
+      expect(pwd).toBe('random_generated_pwd');
+      expect(spawn).toHaveBeenCalledWith('gopass', ['pwgen', '20', '-n'], expect.any(Object));
     });
   });
 });

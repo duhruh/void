@@ -104,5 +104,15 @@ describe('Preload Bridge', () => {
 
     await windowExposed.close();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:close');
+
+    await windowExposed.hidePwgen();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:hide-pwgen');
+
+    // Test gopass.pwgen
+    const gopassExposed = mockCalls.find(call => call[0] === 'gopass')?.[1] as any;
+    vi.mocked(ipcRenderer.invoke).mockResolvedValueOnce('gen_pwd');
+    const pwd = await gopassExposed.pwgen('20 -n');
+    expect(pwd).toBe('gen_pwd');
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('gopass:pwgen', '20 -n');
   });
 });

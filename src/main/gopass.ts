@@ -156,3 +156,11 @@ export async function deleteSecret(secretPath: string): Promise<void> {
 export async function syncSecrets(): Promise<void> {
   await executeGopass(['sync']);
 }
+
+/**
+ * Generates a random one-time password
+ */
+export async function generatePassword(args: string[]): Promise<string> {
+  const output = await executeGopass(['pwgen', ...args]);
+  return output.trim();
+}

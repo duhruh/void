@@ -6,6 +6,41 @@ import SearchIcon from '@mui/icons-material/SearchOutlined';
 import Fuse from 'fuse.js';
 import { AppConfig } from '../../main/config';
 
+const matchesShortcut = (e: React.KeyboardEvent, shortcutStr: string): boolean => {
+  if (!shortcutStr) return false;
+  
+  const parts = shortcutStr.split('+');
+  const targetKey = parts[parts.length - 1].toLowerCase();
+  
+  const hasCtrl = parts.some(p => p.toLowerCase() === 'control' || p.toLowerCase() === 'ctrl' || p.toLowerCase() === 'commandorcontrol' || p.toLowerCase() === 'cmdorctrl');
+  const hasAlt = parts.some(p => p.toLowerCase() === 'alt');
+  const hasShift = parts.some(p => p.toLowerCase() === 'shift');
+  const hasMeta = parts.some(p => p.toLowerCase() === 'command' || p.toLowerCase() === 'cmd' || p.toLowerCase() === 'meta');
+  
+  const ctrlOk = hasCtrl === e.ctrlKey;
+  const altOk = hasAlt === e.altKey;
+  const shiftOk = hasShift === e.shiftKey;
+  const metaOk = hasMeta === e.metaKey;
+  
+  let eventKey = e.key.toLowerCase();
+  if (e.key === ' ') {
+    eventKey = 'space';
+  }
+  
+  return ctrlOk && altOk && shiftOk && metaOk && eventKey === targetKey;
+};
+
+const formatShortcutForDisplay = (shortcutStr: string): string => {
+  if (!shortcutStr) return '';
+  return shortcutStr
+    .replace(/CommandOrControl/g, 'Ctrl')
+    .replace(/Control/g, 'Ctrl')
+    .replace(/Command/g, '⌘')
+    .replace(/Meta/g, '⌘')
+    .replace(/Alt/g, '⌥')
+    .replace(/Shift/g, '⇧');
+};
+
 interface QuickAccessProps {
   config: AppConfig;
 }
@@ -128,24 +163,27 @@ export default function QuickAccess({ config }: QuickAccessProps) {
       if (filtered[selectedIndex]) {
         await copyToClipboardAndClose(filtered[selectedIndex], 'password');
       }
-    } else if (e.ctrlKey || e.metaKey) {
+    } else {
       const activePath = filtered[selectedIndex];
       if (!activePath) return;
 
-      if (e.key.toLowerCase() === 'c') {
+      const scPassword = config.application.shortcut_copy_password || 'Control+C';
+      const scUsername = config.application.shortcut_copy_username || 'Alt+U';
+      const scTotp = config.application.shortcut_copy_totp || 'Alt+O';
+      const scEdit = config.application.shortcut_edit_secret || 'Alt+E';
+
+      if (matchesShortcut(e, scPassword)) {
         e.preventDefault();
         await copyToClipboardAndClose(activePath, 'password');
-      } else if (e.key.toLowerCase() === 'u') {
+      } else if (matchesShortcut(e, scUsername)) {
         e.preventDefault();
         await copyToClipboardAndClose(activePath, 'username');
-      } else if (e.key.toLowerCase() === 'o') {
+      } else if (matchesShortcut(e, scTotp)) {
         e.preventDefault();
         await copyToClipboardAndClose(activePath, 'totp');
-      } else if (e.key.toLowerCase() === 'e') {
+      } else if (matchesShortcut(e, scEdit)) {
         e.preventDefault();
-        // Expand/open details in dashboard
         if (window.windowControl) {
-          // Put path in state or localstorage so dashboard knows which secret to focus
           localStorage.setItem('focused-secret-path', activePath);
           await window.windowControl.openDashboard();
           await window.windowControl.hideQuickAccess();
@@ -287,13 +325,13 @@ export default function QuickAccess({ config }: QuickAccessProps) {
           <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)', display: 'flex', gap: 2 }}>
             <span>Type <strong>/new</strong> to create</span>
             <span>•</span>
-            <span><strong>⏎</strong> Copy Pass</span>
+            <span><strong>{formatShortcutForDisplay(config.application.shortcut_copy_password || 'Control+C')}</strong> Copy Pass</span>
             <span>•</span>
-            <span><strong>⌥U</strong> Username</span>
+            <span><strong>{formatShortcutForDisplay(config.application.shortcut_copy_username || 'Alt+U')}</strong> Username</span>
             <span>•</span>
-            <span><strong>⌥O</strong> TOTP</span>
+            <span><strong>{formatShortcutForDisplay(config.application.shortcut_copy_totp || 'Alt+O')}</strong> TOTP</span>
             <span>•</span>
-            <span><strong>⌥E</strong> Edit</span>
+            <span><strong>{formatShortcutForDisplay(config.application.shortcut_edit_secret || 'Alt+E')}</strong> Edit</span>
           </Typography>
           <Typography variant="caption" sx={{ color: 'var(--color-outline)', fontWeight: 500 }}>
             Void (Q)

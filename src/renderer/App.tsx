@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import QuickAccess from './components/QuickAccess';
 import Dashboard from './components/Dashboard';
+import PwgenPopup from './components/PwgenPopup';
 import { AppConfig } from '../main/config';
 
 export default function App() {
@@ -14,6 +15,8 @@ export default function App() {
       const hash = window.location.hash || '';
       if (hash.includes('quick-access')) {
         setRoute('quick-access');
+      } else if (hash.includes('pwgen')) {
+        setRoute('pwgen');
       } else {
         setRoute('dashboard');
       }
@@ -71,11 +74,11 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Dynamically set background transparency for quick access view
+  // Dynamically set background transparency for quick access and pwgen views
   useEffect(() => {
     const body = document.body;
     const html = document.documentElement;
-    if (route === 'quick-access') {
+    if (route === 'quick-access' || route === 'pwgen') {
       body.style.backgroundColor = 'transparent';
       html.style.backgroundColor = 'transparent';
     } else {
@@ -151,6 +154,8 @@ export default function App() {
       <CssBaseline />
       {route === 'quick-access' ? (
         <QuickAccess config={config} />
+      ) : route === 'pwgen' ? (
+        <PwgenPopup config={config} />
       ) : (
         <Dashboard config={config} setConfig={setConfig} />
       )}

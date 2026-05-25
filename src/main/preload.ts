@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('gopass', {
   ): Promise<void> => ipcRenderer.invoke('gopass:insert', path, password, metadata, rawBody),
   deleteSecret: (path: string): Promise<void> => ipcRenderer.invoke('gopass:delete', path),
   syncSecrets: (): Promise<void> => ipcRenderer.invoke('gopass:sync'),
+  pwgen: (argsStr: string): Promise<string> => ipcRenderer.invoke('gopass:pwgen', argsStr),
 });
 
 contextBridge.exposeInMainWorld('config', {
@@ -26,11 +27,19 @@ contextBridge.exposeInMainWorld('windowControl', {
   minimize: (): Promise<void> => ipcRenderer.invoke('win:minimize'),
   maximize: (): Promise<void> => ipcRenderer.invoke('win:maximize'),
   close: (): Promise<void> => ipcRenderer.invoke('win:close'),
+  hidePwgen: (): Promise<void> => ipcRenderer.invoke('win:hide-pwgen'),
   onShowQuickAccess: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('quick-access:show', listener);
     return () => {
       ipcRenderer.removeListener('quick-access:show', listener);
+    };
+  },
+  onShowPwgen: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('pwgen:show', listener);
+    return () => {
+      ipcRenderer.removeListener('pwgen:show', listener);
     };
   },
 });

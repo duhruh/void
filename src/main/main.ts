@@ -7,11 +7,13 @@ import {
   insertSecret,
   deleteSecret,
   syncSecrets,
-  setGopassPath
+  setGopassPath,
+  generatePassword
 } from './gopass';
 
 let quickAccessWindow: BrowserWindow | null = null;
 let dashboardWindow: BrowserWindow | null = null;
+let pwgenWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let currentConfig: AppConfig;
 
@@ -39,6 +41,9 @@ function updateAppIcons() {
   }
   if (quickAccessWindow) {
     quickAccessWindow.setIcon(nativeImage.createFromPath(winIconPath));
+  }
+  if (pwgenWindow) {
+    pwgenWindow.setIcon(nativeImage.createFromPath(winIconPath));
   }
 }
 
@@ -183,6 +188,55 @@ function createDashboardWindow(useDevServer: boolean) {
   });
 }
 
+function createPwgenWindow(useDevServer: boolean) {
+  const iconPath = getAppIconPath(currentConfig.theme.mode, 'window');
+  pwgenWindow = new BrowserWindow({
+    width: 400,
+    height: 180,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    show: false,
+    skipTaskbar: true,
+    transparent: true,
+    title: 'Void',
+    icon: nativeImage.createFromPath(iconPath),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  pwgenWindow.setContentProtection(true);
+
+  const devServerUrl = 'http://localhost:5173/#/pwgen';
+  const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/pwgen`;
+
+  if (useDevServer && !app.isPackaged) {
+    pwgenWindow.loadURL(devServerUrl);
+  } else {
+    pwgenWindow.loadURL(localFilePath);
+  }
+
+  pwgenWindow.on('blur', () => {
+    pwgenWindow?.hide();
+  });
+}
+
+function togglePwgen() {
+  if (!pwgenWindow) return;
+
+  if (pwgenWindow.isVisible()) {
+    pwgenWindow.hide();
+  } else {
+    pwgenWindow.center();
+    pwgenWindow.show();
+    pwgenWindow.focus();
+    pwgenWindow.webContents.send('pwgen:show');
+  }
+}
+
 function toggleQuickAccess() {
   if (!quickAccessWindow) return;
 
@@ -211,6 +265,17 @@ function registerGlobalShortcut() {
     });
   } catch (err) {
     console.error(`Failed to register global shortcut: ${shortcut}`, err);
+  }
+
+  const pwgenShortcut = currentConfig.application.global_pwgen_hotkey;
+  try {
+    if (pwgenShortcut) {
+      globalShortcut.register(pwgenShortcut, () => {
+        togglePwgen();
+      });
+    }
+  } catch (err) {
+    console.error(`Failed to register global pwgen shortcut: ${pwgenShortcut}`, err);
   }
 }
 
@@ -288,6 +353,15 @@ function setupIpcHandlers() {
   ipcMain.handle('win:close', async () => {
     dashboardWindow?.close();
   });
+
+  ipcMain.handle('gopass:pwgen', async (_, argsStr: string) => {
+    const args = argsStr.split(/\s+/).filter(Boolean);
+    return generatePassword(args);
+  });
+
+  ipcMain.handle('win:hide-pwgen', async () => {
+    pwgenWindow?.hide();
+  });
 }
 
 // App lifecycle
@@ -303,6 +377,7 @@ app.whenReady().then(async () => {
   createTray();
   createQuickAccessWindow(useDevServer);
   createDashboardWindow(useDevServer);
+  createPwgenWindow(useDevServer);
   registerGlobalShortcut();
   setupIpcHandlers();
 

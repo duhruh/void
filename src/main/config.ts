@@ -11,6 +11,12 @@ export interface AppConfig {
     clipboard_purge_delay_seconds: number;
     global_hotkey: string;
     show_dashboard_on_startup: boolean;
+    shortcut_copy_password: string;
+    shortcut_copy_username: string;
+    shortcut_copy_totp: string;
+    shortcut_edit_secret: string;
+    global_pwgen_hotkey: string;
+    pwgen_arguments: string;
   };
   gopass_core: {
     executable_path: string;
@@ -43,6 +49,12 @@ const DEFAULT_CONFIG: AppConfig = {
     clipboard_purge_delay_seconds: 45,
     global_hotkey: 'CommandOrControl+Shift+P',
     show_dashboard_on_startup: true,
+    shortcut_copy_password: 'Control+C',
+    shortcut_copy_username: 'Alt+U',
+    shortcut_copy_totp: 'Alt+O',
+    shortcut_edit_secret: 'Alt+E',
+    global_pwgen_hotkey: 'CommandOrControl+Shift+G',
+    pwgen_arguments: '20',
   },
   gopass_core: {
     executable_path: 'gopass',

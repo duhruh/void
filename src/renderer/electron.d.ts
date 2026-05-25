@@ -14,6 +14,7 @@ declare global {
       ): Promise<void>;
       deleteSecret(path: string): Promise<void>;
       syncSecrets(): Promise<void>;
+      pwgen(argsStr: string): Promise<string>;
     };
     config: {
       loadConfig(): Promise<AppConfig>;
@@ -25,7 +26,9 @@ declare global {
       minimize(): Promise<void>;
       maximize(): Promise<void>;
       close(): Promise<void>;
+      hidePwgen(): Promise<void>;
       onShowQuickAccess(callback: () => void): () => void;
+      onShowPwgen(callback: () => void): () => void;
     };
   }
 }

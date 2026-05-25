@@ -13,6 +13,12 @@ vi.mock('./config', () => {
         clipboard_purge_delay_seconds: 45,
         global_hotkey: 'CommandOrControl+Shift+P',
         show_dashboard_on_startup: true,
+        shortcut_copy_password: 'Control+C',
+        shortcut_copy_username: 'Alt+U',
+        shortcut_copy_totp: 'Alt+O',
+        shortcut_edit_secret: 'Alt+E',
+        global_pwgen_hotkey: 'CommandOrControl+Shift+G',
+        pwgen_arguments: '20',
       },
       gopass_core: {
         executable_path: 'gopass',
@@ -136,8 +142,9 @@ describe('Main Process Entry', () => {
 
     // Verify Tray and Windows are created
     expect(Tray).toHaveBeenCalled();
-    expect(BrowserWindow).toHaveBeenCalledTimes(2); // One for Quick Access, one for Dashboard
+    expect(BrowserWindow).toHaveBeenCalledTimes(3); // Quick Access, Dashboard, Pwgen
     expect(globalShortcut.register).toHaveBeenCalledWith('CommandOrControl+Shift+P', expect.any(Function));
+    expect(globalShortcut.register).toHaveBeenCalledWith('CommandOrControl+Shift+G', expect.any(Function));
 
     // Verify IPC handlers are registered
     expect(ipcMain.handle).toHaveBeenCalledWith('gopass:list', expect.any(Function));
@@ -149,5 +156,7 @@ describe('Main Process Entry', () => {
     expect(ipcMain.handle).toHaveBeenCalledWith('config:save', expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith('win:hide-quick-access', expect.any(Function));
     expect(ipcMain.handle).toHaveBeenCalledWith('win:open-dashboard', expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith('gopass:pwgen', expect.any(Function));
+    expect(ipcMain.handle).toHaveBeenCalledWith('win:hide-pwgen', expect.any(Function));
   });
 });

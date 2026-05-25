@@ -1005,15 +1005,15 @@ interface SettingsDialogProps {
 
 function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) {
   const [localConfig, setLocalConfig] = useState<AppConfig>({ ...config });
-  const [isRecording, setIsRecording] = useState(false);
+  const [recordingField, setRecordingField] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalConfig({ ...config });
-    setIsRecording(false);
+    setRecordingField(null);
   }, [config, open]);
 
   useEffect(() => {
-    if (!isRecording) return;
+    if (!recordingField) return;
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
@@ -1033,7 +1033,7 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
         if (key === ' ') {
           electronKey = 'Space';
         } else if (key === 'Escape') {
-          setIsRecording(false);
+          setRecordingField(null);
           return;
         } else if (key.length === 1) {
           electronKey = key.toUpperCase();
@@ -1046,9 +1046,12 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
 
         setLocalConfig((prev) => ({
           ...prev,
-          application: { ...prev.application, global_hotkey: combined },
+          application: {
+            ...prev.application,
+            [recordingField]: combined
+          },
         }));
-        setIsRecording(false);
+        setRecordingField(null);
       }
     };
 
@@ -1056,7 +1059,7 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown, true);
     };
-  }, [isRecording]);
+  }, [recordingField]);
 
   const handleModeChange = (mode: 'system' | 'light' | 'dark') => {
     setLocalConfig((prev) => ({
@@ -1077,6 +1080,55 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
       ...prev,
       application: { ...prev.application, show_dashboard_on_startup: val },
     }));
+  };
+
+  const handleResetToDefaults = () => {
+    setLocalConfig((prev) => ({
+      ...prev,
+      application: {
+        ...prev.application,
+        global_hotkey: 'CommandOrControl+Shift+P',
+        shortcut_copy_password: 'Control+C',
+        shortcut_copy_username: 'Alt+U',
+        shortcut_copy_totp: 'Alt+O',
+        shortcut_edit_secret: 'Alt+E',
+        global_pwgen_hotkey: 'CommandOrControl+Shift+G',
+        pwgen_arguments: '20',
+      }
+    }));
+  };
+
+  const renderShortcutField = (label: string, field: string) => {
+    const isRecordingThis = recordingField === field;
+    const value = (localConfig.application as any)[field] || '';
+    
+    return (
+      <Box key={field} sx={{ mb: 2 }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-outline)', display: 'block', mb: 0.5 }}>
+          {label}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+          <TextField
+            fullWidth
+            size="small"
+            value={isRecordingThis ? 'Press key combination (or Esc to cancel)...' : value}
+            InputProps={{
+              readOnly: true,
+            }}
+            error={isRecordingThis}
+            helperText={isRecordingThis ? 'Listening...' : ''}
+          />
+          <Button
+            variant={isRecordingThis ? 'contained' : 'outlined'}
+            color={isRecordingThis ? 'error' : 'primary'}
+            onClick={() => setRecordingField(isRecordingThis ? null : field)}
+            sx={{ height: '40px', minWidth: '100px', borderRadius: '8px', textTransform: 'none' }}
+          >
+            {isRecordingThis ? 'Stop' : 'Record'}
+          </Button>
+        </Box>
+      </Box>
+    );
   };
 
   return (
@@ -1128,30 +1180,37 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
           />
         </Box>
 
-        {/* Global Shortcut settings */}
+        {/* Keyboard Shortcuts */}
         <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Global Shortcut</Typography>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Toggle Quick Access Keybinding"
-              value={isRecording ? 'Press key combination (or Esc to cancel)...' : localConfig.application.global_hotkey}
-              InputProps={{
-                readOnly: true,
-              }}
-              error={isRecording}
-              helperText={isRecording ? 'Listening for key combinations...' : 'Click "Record" and press your shortcut.'}
-            />
-            <Button
-              variant={isRecording ? 'contained' : 'outlined'}
-              color={isRecording ? 'error' : 'primary'}
-              onClick={() => setIsRecording(!isRecording)}
-              sx={{ height: '40px', minWidth: '100px', borderRadius: '8px', textTransform: 'none' }}
-            >
-              {isRecording ? 'Stop' : 'Record'}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Keyboard Shortcuts</Typography>
+            <Button size="small" onClick={handleResetToDefaults} sx={{ textTransform: 'none' }}>
+              Reset to Defaults
             </Button>
           </Box>
+          {renderShortcutField('Toggle Quick Access (Global)', 'global_hotkey')}
+          {renderShortcutField('Toggle Password Generator (Global)', 'global_pwgen_hotkey')}
+          {renderShortcutField('Copy Password (Inside Quick Access)', 'shortcut_copy_password')}
+          {renderShortcutField('Copy Username (Inside Quick Access)', 'shortcut_copy_username')}
+          {renderShortcutField('Copy TOTP (Inside Quick Access)', 'shortcut_copy_totp')}
+          {renderShortcutField('Edit Secret (Inside Quick Access)', 'shortcut_edit_secret')}
+        </Box>
+
+        {/* Password Generator Settings */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Password Generator</Typography>
+          <TextField
+            fullWidth
+            size="small"
+            label="gopass pwgen Arguments"
+            value={localConfig.application.pwgen_arguments}
+            onChange={(e) =>
+              setLocalConfig((prev) => ({
+                ...prev,
+                application: { ...prev.application, pwgen_arguments: e.target.value },
+              }))
+            }
+          />
         </Box>
 
         {/* Binary path settings */}
