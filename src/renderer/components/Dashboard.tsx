@@ -1005,10 +1005,58 @@ interface SettingsDialogProps {
 
 function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) {
   const [localConfig, setLocalConfig] = useState<AppConfig>({ ...config });
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     setLocalConfig({ ...config });
+    setIsRecording(false);
   }, [config, open]);
+
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const keys: string[] = [];
+      if (e.ctrlKey) keys.push('Control');
+      if (e.altKey) keys.push('Alt');
+      if (e.shiftKey) keys.push('Shift');
+      if (e.metaKey) keys.push('Command');
+
+      const key = e.key;
+      const isModifierOnly = ['Control', 'Alt', 'Shift', 'Meta', 'CapsLock'].includes(key);
+
+      if (!isModifierOnly) {
+        let electronKey = key;
+        if (key === ' ') {
+          electronKey = 'Space';
+        } else if (key === 'Escape') {
+          setIsRecording(false);
+          return;
+        } else if (key.length === 1) {
+          electronKey = key.toUpperCase();
+        } else {
+          electronKey = key.charAt(0).toUpperCase() + key.slice(1);
+        }
+
+        keys.push(electronKey);
+        const combined = keys.join('+');
+
+        setLocalConfig((prev) => ({
+          ...prev,
+          application: { ...prev.application, global_hotkey: combined },
+        }));
+        setIsRecording(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    };
+  }, [isRecording]);
 
   const handleModeChange = (mode: 'system' | 'light' | 'dark') => {
     setLocalConfig((prev) => ({
@@ -1083,19 +1131,27 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
         {/* Global Shortcut settings */}
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Global Shortcut</Typography>
-          <TextField
-            fullWidth
-            size="small"
-            label="Toggle Quick Access Keybinding"
-            value={localConfig.application.global_hotkey}
-            onChange={(e) =>
-              setLocalConfig((prev) => ({
-                ...prev,
-                application: { ...prev.application, global_hotkey: e.target.value },
-              }))
-            }
-            helperText="e.g. CommandOrControl+Shift+P, Ctrl+Alt+Space"
-          />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Toggle Quick Access Keybinding"
+              value={isRecording ? 'Press key combination (or Esc to cancel)...' : localConfig.application.global_hotkey}
+              InputProps={{
+                readOnly: true,
+              }}
+              error={isRecording}
+              helperText={isRecording ? 'Listening for key combinations...' : 'Click "Record" and press your shortcut.'}
+            />
+            <Button
+              variant={isRecording ? 'contained' : 'outlined'}
+              color={isRecording ? 'error' : 'primary'}
+              onClick={() => setIsRecording(!isRecording)}
+              sx={{ height: '40px', minWidth: '100px', borderRadius: '8px', textTransform: 'none' }}
+            >
+              {isRecording ? 'Stop' : 'Record'}
+            </Button>
+          </Box>
         </Box>
 
         {/* Binary path settings */}

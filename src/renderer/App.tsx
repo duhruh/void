@@ -71,6 +71,19 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Dynamically set background transparency for quick access view
+  useEffect(() => {
+    const body = document.body;
+    const html = document.documentElement;
+    if (route === 'quick-access') {
+      body.style.backgroundColor = 'transparent';
+      html.style.backgroundColor = 'transparent';
+    } else {
+      body.style.backgroundColor = '';
+      html.style.backgroundColor = '';
+    }
+  }, [route]);
+
   // Generate MUI Theme according to config tokens
   const muiTheme = React.useMemo(() => {
     const seed = config?.theme?.custom_profile_seed?.[isDarkMode ? 'dark' : 'light'];
