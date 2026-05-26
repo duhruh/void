@@ -1,5 +1,6 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, net, nativeTheme } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, net, nativeTheme, clipboard, dialog } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { loadConfig, saveConfig, AppConfig } from './config';
 import {
   listSecrets,
@@ -8,7 +9,11 @@ import {
   deleteSecret,
   syncSecrets,
   setGopassPath,
-  generatePassword
+  generatePassword,
+  executeGopassBinary,
+  listMounts,
+  addMount,
+  removeMount
 } from './gopass';
 
 let quickAccessWindow: BrowserWindow | null = null;
@@ -299,6 +304,8 @@ function applyLoginSettings(config: AppConfig) {
 }
 
 // Binds IPC signals
+let clipboardPurgeTimer: NodeJS.Timeout | null = null;
+
 function setupIpcHandlers() {
   ipcMain.handle('gopass:list', async () => {
     return listSecrets();
@@ -380,6 +387,80 @@ function setupIpcHandlers() {
 
   ipcMain.handle('win:hide-pwgen', async () => {
     pwgenWindow?.hide();
+  });
+
+  ipcMain.handle('gopass:mounts:list', async () => {
+    return listMounts();
+  });
+
+  ipcMain.handle('gopass:mounts:add', async (_, alias: string, storePath: string) => {
+    await addMount(alias, storePath);
+  });
+
+  ipcMain.handle('gopass:mounts:remove', async (_, alias: string) => {
+    await removeMount(alias);
+  });
+
+  ipcMain.handle('gopass:binary:read', async (_, secretPath: string) => {
+    const tempDir = app.getPath('temp');
+    const tempFilePath = path.join(tempDir, `void_temp_${Date.now()}_${path.basename(secretPath)}`);
+    try {
+      await executeGopassBinary(['fscopy', secretPath, tempFilePath]);
+      if (fs.existsSync(tempFilePath)) {
+        const buffer = fs.readFileSync(tempFilePath);
+        const base64Data = buffer.toString('base64');
+        fs.unlinkSync(tempFilePath);
+        return base64Data;
+      }
+      throw new Error('Temp file was not written');
+    } catch (err) {
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      console.error('Binary read failed:', err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle('gopass:binary:import', async (_, secretPath: string, localPath: string) => {
+    await executeGopassBinary(['fscopy', localPath, secretPath]);
+  });
+
+  ipcMain.handle('gopass:binary:export', async (event, secretPath: string, filename: string) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    const result = await dialog.showSaveDialog(window, {
+      defaultPath: filename,
+      title: 'Save Attachment',
+    });
+    if (result.canceled || !result.filePath) return;
+    await executeGopassBinary(['fscopy', secretPath, result.filePath]);
+  });
+
+  ipcMain.handle('win:select-directory', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return null;
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openDirectory'],
+    });
+    if (result.canceled) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('clipboard:write', async (_, text: string, isPassword?: boolean) => {
+    clipboard.writeText(text);
+    if (clipboardPurgeTimer) {
+      clearTimeout(clipboardPurgeTimer);
+      clipboardPurgeTimer = null;
+    }
+    if (isPassword) {
+      const delay = (currentConfig.application.clipboard_purge_delay_seconds || 30) * 1000;
+      clipboardPurgeTimer = setTimeout(() => {
+        if (clipboard.readText() === text) {
+          clipboard.clear();
+        }
+      }, delay);
+    }
   });
 }
 

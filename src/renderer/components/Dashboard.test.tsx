@@ -63,6 +63,14 @@ describe('Dashboard Component', () => {
       insertSecret: vi.fn().mockResolvedValue(undefined),
       deleteSecret: vi.fn().mockResolvedValue(undefined),
       syncSecrets: vi.fn().mockResolvedValue(undefined),
+      listMounts: vi.fn().mockResolvedValue([
+        { alias: 'root', path: '/mock/root', isRoot: true }
+      ]),
+      addMount: vi.fn().mockResolvedValue(undefined),
+      removeMount: vi.fn().mockResolvedValue(undefined),
+      readBinarySecret: vi.fn().mockResolvedValue(''),
+      importBinarySecret: vi.fn().mockResolvedValue(undefined),
+      exportBinarySecret: vi.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -105,7 +113,7 @@ describe('Dashboard Component', () => {
     // Pane 3 should display secret path and detail editor fields
     expect(screen.getAllByText('personal/banking/chase')[0]).toBeInTheDocument();
     expect(screen.getByDisplayValue('testuser')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('secure notes content')).toBeInTheDocument();
+    expect(screen.getByText('secure notes content')).toBeInTheDocument();
   });
 
   it('triggers git sync when Sync button is clicked', async () => {

@@ -164,3 +164,117 @@ export async function generatePassword(args: string[]): Promise<string> {
   const output = await executeGopass(['pwgen', ...args]);
   return output.trim();
 }
+
+export interface MountInfo {
+  alias: string;
+  path: string;
+  isRoot: boolean;
+}
+
+/**
+ * Execute gopass process and return raw stdout buffer
+ */
+export function executeGopassBinary(args: string[], stdinData?: string | Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const processPath = getGopassPath();
+    const env = { ...process.env, GOPASS_NO_COLOR: 'true', GOPASS_NON_INTERACTIVE: 'true' };
+    const child = spawn(processPath, args, { env, shell: true });
+
+    let chunks: Buffer[] = [];
+    let stderr = '';
+
+    if (child.stdin) {
+      if (stdinData) {
+        child.stdin.write(stdinData);
+      }
+      child.stdin.end();
+    }
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(Buffer.concat(chunks));
+      } else {
+        reject(new Error(`gopass exited with code ${code}. Error: ${stderr.trim()}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Retrieve mounts list
+ */
+export async function listMounts(): Promise<MountInfo[]> {
+  const mounts: MountInfo[] = [];
+
+  // Get root path from gopass config mounts.path
+  let rootPath = '';
+  try {
+    const configOut = await executeGopass(['config']);
+    const pathLine = configOut.split(/\r?\n/).find(l => l.startsWith('mounts.path = '));
+    if (pathLine) {
+      rootPath = pathLine.replace('mounts.path = ', '').trim();
+    }
+  } catch (err) {
+    console.error('Failed to get root store path:', err);
+  }
+
+  mounts.push({
+    alias: 'root',
+    path: rootPath || path.join(process.env.HOME || process.env.USERPROFILE || '', '.password-store'),
+    isRoot: true,
+  });
+
+  // Parse other mounts
+  try {
+    const mountsOut = await executeGopass(['mounts']);
+    if (mountsOut.trim() !== 'No mounts') {
+      const lines = mountsOut.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        // Skip root if it's printed as first line (if any)
+        if (!line.includes('├──') && !line.includes('└──') && !line.includes('│')) {
+          continue;
+        }
+        // Extract alias and path
+        const clean = line.replace(/[├└│─\s\-]/g, ' ').trim();
+        const match = clean.match(/^([^(]+)\s+\(([^)]+)\)$/);
+        if (match) {
+          mounts.push({
+            alias: match[1].trim(),
+            path: match[2].trim(),
+            isRoot: false,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to list mounts:', err);
+  }
+
+  return mounts;
+}
+
+/**
+ * Add a new mount store
+ */
+export async function addMount(alias: string, storePath: string): Promise<void> {
+  await executeGopass(['mounts', 'add', alias, storePath]);
+}
+
+/**
+ * Remove a mount store
+ */
+export async function removeMount(alias: string): Promise<void> {
+  await executeGopass(['mounts', 'remove', alias]);
+}

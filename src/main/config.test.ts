@@ -60,7 +60,7 @@ describe('Config Manager', () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
       const config = loadConfig('/some/path');
       expect(config.version).toBe('1.0.0');
-      expect(config.application.clipboard_purge_delay_seconds).toBe(45);
+      expect(config.application.clipboard_purge_delay_seconds).toBe(30);
       expect(config.gopass_core.executable_path).toBe('gopass');
     });
 

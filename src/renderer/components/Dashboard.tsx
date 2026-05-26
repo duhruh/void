@@ -46,6 +46,7 @@ import { AppConfig } from '../../main/config';
 import { SecretData } from '../../main/gopass';
 import lightIcon from '../../assets/light.svg';
 import darkIcon from '../../assets/dark.svg';
+import { marked } from 'marked';
 
 interface DashboardProps {
   config: AppConfig;
@@ -57,7 +58,23 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const [secrets, setSecrets] = useState<string[]>([]);
   const [folderQuery, setFolderQuery] = useState('');
   const [secretQuery, setSecretQuery] = useState('');
-  const [selectedFolder, setSelectedFolder] = useState<string>('root');
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+
+  // Mounts/Stores State
+  const [mounts, setMounts] = useState<Array<{ alias: string; path: string; isRoot: boolean }>>([]);
+  const [selectedStore, setSelectedStore] = useState<string>('all');
+  const [manageMountsOpen, setManageMountsOpen] = useState(false);
+  const [newMountAlias, setNewMountAlias] = useState('');
+  const [newMountPath, setNewMountPath] = useState('');
+
+  // Binary/File State
+  const [binaryBase64, setBinaryBase64] = useState<string | null>(null);
+  const [binaryLoading, setBinaryLoading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<{ path: string; name: string; size: number; type: string } | null>(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const notesRef = React.useRef<HTMLTextAreaElement | null>(null);
   
   // Active Secret State
   const [selectedSecretPath, setSelectedSecretPath] = useState<string | null>(null);
@@ -103,8 +120,21 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     }
   };
 
+  // Load mounts list
+  const loadMountsList = async () => {
+    if (window.gopass) {
+      try {
+        const list = await window.gopass.listMounts();
+        setMounts(list);
+      } catch (err) {
+        console.error('Failed to load mounts:', err);
+      }
+    }
+  };
+
   useEffect(() => {
     loadSecretsList();
+    loadMountsList();
     
     // Check if Quick Access focused a secret
     const focused = localStorage.getItem('focused-secret-path');
@@ -114,15 +144,129 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     }
   }, []);
 
+  // Detect binary file secrets
+  const isFileSecret = useMemo(() => {
+    if (!activeSecret) return false;
+    return (
+      activeSecret.password === '[Void Secure File]' ||
+      activeSecret.metadata['Content-Disposition'] !== undefined ||
+      activeSecret.metadata['Content-Transfer-Encoding'] !== undefined ||
+      (selectedSecretPath && (
+        selectedSecretPath.toLowerCase().endsWith('.png') ||
+        selectedSecretPath.toLowerCase().endsWith('.jpg') ||
+        selectedSecretPath.toLowerCase().endsWith('.jpeg') ||
+        selectedSecretPath.toLowerCase().endsWith('.gif') ||
+        selectedSecretPath.toLowerCase().endsWith('.pdf')
+      ))
+    );
+  }, [activeSecret, selectedSecretPath]);
+
+  const fileDetails = useMemo(() => {
+    if (!isFileSecret || !selectedSecretPath) return null;
+    
+    let filename = selectedSecretPath.split('/').pop() || 'file';
+    if (activeSecret.metadata['filename']) {
+      filename = activeSecret.metadata['filename'];
+    } else if (activeSecret.metadata['Content-Disposition']) {
+      const match = activeSecret.metadata['Content-Disposition'].match(/filename="([^"]+)"/);
+      if (match) filename = match[1];
+    }
+
+    let mimeType = 'application/octet-stream';
+    if (activeSecret.metadata['mimeType']) {
+      mimeType = activeSecret.metadata['mimeType'];
+    } else {
+      const ext = filename.split('.').pop()?.toLowerCase();
+      if (ext === 'png') mimeType = 'image/png';
+      else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+      else if (ext === 'gif') mimeType = 'image/gif';
+      else if (ext === 'pdf') mimeType = 'application/pdf';
+    }
+
+    return { filename, mimeType };
+  }, [isFileSecret, activeSecret, selectedSecretPath]);
+
+  const getByteSize = (b64: string) => {
+    let len = b64.length;
+    if (b64.endsWith('==')) len -= 2;
+    else if (b64.endsWith('=')) len -= 1;
+    return Math.floor((len * 3) / 4);
+  };
+
+  const displayFileSize = useMemo(() => {
+    if (activeSecret.metadata['size']) {
+      const bytes = parseInt(activeSecret.metadata['size']);
+      if (!isNaN(bytes)) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      }
+    }
+    if (binaryBase64) {
+      const bytes = getByteSize(binaryBase64);
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    return 'Unknown Size';
+  }, [activeSecret.metadata, binaryBase64]);
+
+  // Fetch binary contents when a file secret is loaded
+  useEffect(() => {
+    if (selectedSecretPath && isFileSecret) {
+      setBinaryLoading(true);
+      setBinaryBase64(null);
+      window.gopass.readBinarySecret(selectedSecretPath)
+        .then((b64) => {
+          setBinaryBase64(b64);
+          setBinaryLoading(false);
+        })
+        .catch((err) => {
+          console.error('Failed to load binary secret content:', err);
+          setBinaryLoading(false);
+        });
+    } else {
+      setBinaryBase64(null);
+    }
+  }, [selectedSecretPath, isFileSecret]);
+
+  // Filter secrets by active store
+  const secretsInStore = useMemo(() => {
+    const subAliases = mounts.filter(m => !m.isRoot).map(m => m.alias);
+    return secrets.filter((s) => {
+      if (selectedStore === 'all') return true;
+      const parts = s.split('/');
+      const firstPart = parts[0];
+      const hasSubMount = subAliases.includes(firstPart);
+      
+      if (selectedStore === 'root') {
+        return !hasSubMount;
+      } else {
+        return firstPart === selectedStore;
+      }
+    });
+  }, [secrets, selectedStore, mounts]);
+
   // Compute folder tree structure
   const folders = useMemo(() => {
     const set = new Set<string>();
-    set.add('root');
-    secrets.forEach((pathStr) => {
-      const parts = pathStr.split('/');
-      // Accumulate directory levels
-      for (let i = 1; i < parts.length; i++) {
-        set.add(parts.slice(0, i).join('/'));
+    secretsInStore.forEach((pathStr) => {
+      let prefix = '';
+      if (selectedStore !== 'all' && selectedStore !== 'root') {
+        prefix = selectedStore + '/';
+      }
+      
+      let relativePath = pathStr;
+      if (prefix && pathStr.startsWith(prefix)) {
+        relativePath = pathStr.substring(prefix.length);
+      }
+      
+      const relParts = relativePath.split('/');
+      for (let i = 1; i < relParts.length; i++) {
+        const folderPart = relParts.slice(0, i).join('/');
+        if (folderPart) {
+          set.add(folderPart);
+        }
       }
     });
 
@@ -132,18 +276,33 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     return list
       .filter((f) => f.toLowerCase().includes(folderQuery.toLowerCase()))
       .sort();
-  }, [secrets, folderQuery]);
+  }, [secretsInStore, selectedStore, folderQuery]);
 
   // Compute secrets inside chosen folder
   const secretsInFolder = useMemo(() => {
-    return secrets.filter((s) => {
-      const parts = s.split('/');
+    return secretsInStore.filter((s) => {
+      let prefix = '';
+      if (selectedStore !== 'all' && selectedStore !== 'root') {
+        prefix = selectedStore + '/';
+      }
+      
+      let relativePath = s;
+      if (prefix && s.startsWith(prefix)) {
+        relativePath = s.substring(prefix.length);
+      }
+      
+      const parts = relativePath.split('/');
       const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : 'root';
-      const matchesFolder = selectedFolder === 'root' ? parts.length === 1 : folder === selectedFolder;
+      
+      const matchesFolder = 
+        selectedFolder === null ? true : 
+        selectedFolder === 'root' ? folder === 'root' : 
+        folder === selectedFolder;
+        
       const matchesSearch = s.toLowerCase().includes(secretQuery.toLowerCase());
       return matchesFolder && matchesSearch;
     });
-  }, [secrets, selectedFolder, secretQuery]);
+  }, [secretsInStore, selectedStore, selectedFolder, secretQuery]);
 
   // Select Secret details
   const selectSecret = async (pathStr: string) => {
@@ -151,6 +310,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       try {
         setIsCreatingNew(false);
         setIsEditing(false);
+        setPendingImportFile(null);
         setSelectedSecretPath(pathStr);
         const details = await window.gopass.showSecret(pathStr);
         setActiveSecret(details);
@@ -166,7 +326,17 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     setIsCreatingNew(true);
     setIsEditing(true);
     setSelectedSecretPath(null);
-    setNewSecretPath(selectedFolder === 'root' ? '' : `${selectedFolder}/`);
+    setPendingImportFile(null);
+    
+    let defaultPrefix = '';
+    if (selectedStore !== 'all' && selectedStore !== 'root') {
+      defaultPrefix = `${selectedStore}/`;
+    }
+    if (selectedFolder && selectedFolder !== 'root') {
+      defaultPrefix += `${selectedFolder}/`;
+    }
+    setNewSecretPath(defaultPrefix);
+    
     setActiveSecret({
       password: '',
       metadata: { username: '' },
@@ -216,12 +386,17 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     if (window.gopass) {
       try {
         setSyncStatus('syncing');
-        await window.gopass.insertSecret(
-          finalPath,
-          activeSecret.password,
-          activeSecret.metadata,
-          activeSecret.rawBody
-        );
+        if (pendingImportFile) {
+          await window.gopass.importBinarySecret(finalPath, pendingImportFile.path);
+          setPendingImportFile(null);
+        } else {
+          await window.gopass.insertSecret(
+            finalPath,
+            activeSecret.password,
+            activeSecret.metadata,
+            activeSecret.rawBody
+          );
+        }
         setIsEditing(false);
         setIsCreatingNew(false);
         setSelectedSecretPath(finalPath);
@@ -332,6 +507,89 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       setConfig(newConfig);
       setSettingsOpen(false);
     }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (isEditing) {
+      setDragOver(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (!isEditing) return;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      const filePath = (file as any).path;
+      if (filePath) {
+        setPendingImportFile({
+          path: filePath,
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/octet-stream'
+        });
+        if (isCreatingNew && !newSecretPath) {
+          let prefix = '';
+          if (selectedStore !== 'all' && selectedStore !== 'root') {
+            prefix = `${selectedStore}/`;
+          }
+          if (selectedFolder && selectedFolder !== 'root') {
+            prefix += `${selectedFolder}/`;
+          }
+          setNewSecretPath(prefix + file.name);
+        }
+      }
+    }
+  };
+
+  const handleInsertMarkdown = (syntax: 'bold' | 'italic' | 'h1' | 'h2' | 'link' | 'code' | 'list') => {
+    const textarea = notesRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+
+    let replacement = '';
+    switch (syntax) {
+      case 'bold':
+        replacement = `**${selectedText || 'bold text'}**`;
+        break;
+      case 'italic':
+        replacement = `*${selectedText || 'italic text'}*`;
+        break;
+      case 'h1':
+        replacement = `# ${selectedText || 'Header 1'}`;
+        break;
+      case 'h2':
+        replacement = `## ${selectedText || 'Header 2'}`;
+        break;
+      case 'link':
+        replacement = `[${selectedText || 'Link Text'}](https://example.com)`;
+        break;
+      case 'code':
+        replacement = `\`\`\`\n${selectedText || 'code block'}\n\`\`\``;
+        break;
+      case 'list':
+        replacement = `- ${selectedText || 'list item'}`;
+        break;
+    }
+
+    const newValue = text.substring(0, start) + replacement + text.substring(end);
+    setActiveSecret(prev => ({ ...prev, rawBody: newValue }));
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+    }, 50);
   };
 
   const isDarkMode = theme.palette.mode === 'dark';
@@ -532,11 +790,47 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           backgroundColor: 'rgba(254, 247, 255, 0.4)',
         }}
       >
-        <Box sx={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ padding: '16px 16px 8px 16px', display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
             gopass
           </Typography>
           <IconButton size="small" onClick={() => setSettingsOpen(true)}>
+            <SettingsIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        {/* Store Selector */}
+        <Box sx={{ display: 'flex', gap: 1, px: 2, pb: 1.5, alignItems: 'center' }}>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="Store / Mount"
+            value={selectedStore}
+            onChange={(e) => {
+              setSelectedStore(e.target.value);
+              setSelectedFolder(null);
+            }}
+            SelectProps={{
+              native: true,
+            }}
+            sx={{
+              '& .MuiInputBase-input': { fontSize: '13px', py: '6px' },
+              '& .MuiInputLabel-root': { fontSize: '13px' }
+            }}
+          >
+            <option value="all">All Stores</option>
+            {mounts.map((m) => (
+              <option key={m.alias} value={m.alias}>
+                {m.alias === 'root' ? 'Root Store' : m.alias}
+              </option>
+            ))}
+          </TextField>
+          <IconButton 
+            size="small" 
+            onClick={() => setManageMountsOpen(true)}
+            sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '8px', p: '6px' }}
+          >
             <SettingsIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -561,16 +855,68 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         <Divider />
 
         <List sx={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+          {/* Static Navigation Items */}
+          <ListItem
+            className={`nav-tree-item ${selectedFolder === null ? 'selected' : ''}`}
+            onClick={() => setSelectedFolder(null)}
+            sx={{
+              pl: '12px',
+              backgroundColor: selectedFolder === null ? 'var(--color-primary-container)' : 'transparent',
+              color: selectedFolder === null ? 'var(--color-on-primary-container)' : 'inherit',
+              borderRadius: '100px',
+              mb: '2px',
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: selectedFolder === null ? 'var(--color-primary-container)' : 'rgba(103, 80, 164, 0.08)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: '32px', color: selectedFolder === null ? 'var(--color-primary)' : 'var(--color-outline)' }}>
+              <KeyIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="All Secrets"
+              primaryTypographyProps={{ fontSize: '13px', fontWeight: selectedFolder === null ? 500 : 400 }}
+            />
+          </ListItem>
+
+          <ListItem
+            className={`nav-tree-item ${selectedFolder === 'root' ? 'selected' : ''}`}
+            onClick={() => setSelectedFolder('root')}
+            sx={{
+              pl: '12px',
+              backgroundColor: selectedFolder === 'root' ? 'var(--color-primary-container)' : 'transparent',
+              color: selectedFolder === 'root' ? 'var(--color-on-primary-container)' : 'inherit',
+              borderRadius: '100px',
+              mb: '2px',
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: selectedFolder === 'root' ? 'var(--color-primary-container)' : 'rgba(103, 80, 164, 0.08)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: '32px', color: selectedFolder === 'root' ? 'var(--color-primary)' : 'var(--color-outline)' }}>
+              <FolderIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Uncategorized (Root)"
+              primaryTypographyProps={{ fontSize: '13px', fontWeight: selectedFolder === 'root' ? 500 : 400 }}
+            />
+          </ListItem>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Computed Folder Tree */}
           {folders.map((folder) => {
             const isSelected = selectedFolder === folder;
-            const displayName = folder === 'root' ? 'root' : folder.split('/').pop();
-            const indent = folder === 'root' ? 0 : folder.split('/').length * 8;
+            const displayName = folder.split('/').pop();
+            const indent = folder.split('/').length * 8;
 
             return (
               <ListItem
                 key={folder}
                 className={`nav-tree-item ${isSelected ? 'selected' : ''}`}
-                onClick={() => setSelectedFolder(folder)}
+                onClick={() => setSelectedFolder(isSelected ? null : folder)}
                 sx={{
                   pl: `${indent + 12}px`,
                   backgroundColor: isSelected ? 'var(--color-primary-container)' : 'transparent',
@@ -606,24 +952,70 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           backgroundColor: 'rgba(254, 247, 255, 0.2)',
         }}
       >
-        <Box sx={{ padding: '16px', display: 'flex', gap: 1 }}>
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="Search secrets..."
-            value={secretQuery}
-            onChange={(e) => setSecretQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" sx={{ color: 'var(--color-outline)' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <IconButton color="primary" onClick={handleAddNewSecret}>
-            <AddIcon />
-          </IconButton>
+        <Box sx={{ px: 2, pt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {/* Breadcrumbs Row */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, minHeight: '20px' }}>
+            <Typography 
+              variant="caption" 
+              onClick={() => setSelectedFolder(null)}
+              sx={{ 
+                cursor: 'pointer', 
+                color: 'var(--color-primary)', 
+                fontWeight: 600,
+                fontSize: '11px',
+                '&:hover': { textDecoration: 'underline' } 
+              }}
+            >
+              {selectedStore === 'all' ? 'All Stores' : selectedStore === 'root' ? 'Root Store' : selectedStore}
+            </Typography>
+            {selectedFolder && selectedFolder !== 'root' && selectedFolder.split('/').map((part, index, arr) => {
+              const folderPath = arr.slice(0, index + 1).join('/');
+              return (
+                <React.Fragment key={folderPath}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '10px' }}>/</Typography>
+                  <Typography 
+                    variant="caption" 
+                    onClick={() => setSelectedFolder(folderPath)}
+                    sx={{ 
+                      cursor: 'pointer', 
+                      color: 'var(--color-primary)',
+                      fontWeight: 500,
+                      fontSize: '11px',
+                      '&:hover': { textDecoration: 'underline' } 
+                    }}
+                  >
+                    {part}
+                  </Typography>
+                </React.Fragment>
+              );
+            })}
+            {selectedFolder === 'root' && (
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '10px' }}>/</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '11px' }}>Root</Typography>
+              </>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1, pb: 1 }}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Search secrets..."
+              value={secretQuery}
+              onChange={(e) => setSecretQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" sx={{ color: 'var(--color-outline)' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <IconButton color="primary" onClick={handleAddNewSecret}>
+              <AddIcon />
+            </IconButton>
+          </Box>
         </Box>
 
         <Divider />
@@ -643,7 +1035,14 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
               return (
                 <ListItem
                   key={s}
-                  onClick={() => selectSecret(s)}
+                  onClick={() => {
+                    if (selectedSecretPath === s) {
+                      setSelectedSecretPath(null);
+                      setActiveSecret({ password: '', metadata: {}, rawBody: '' });
+                    } else {
+                      selectSecret(s);
+                    }
+                  }}
                   sx={{
                     borderRadius: '12px',
                     mb: '4px',
@@ -702,9 +1101,22 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           </Box>
         </Box>
 
-        {/* Editor Body */}
         {(selectedSecretPath || isCreatingNew) ? (
-          <Box sx={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              border: dragOver ? '2px dashed var(--color-primary)' : 'none',
+              backgroundColor: dragOver ? 'rgba(103, 80, 164, 0.04)' : 'transparent',
+            }}
+          >
             
             {/* Secret Path input (Only when creating new) */}
             {isCreatingNew && (
@@ -717,184 +1129,250 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
               />
             )}
 
-            {/* Password Block */}
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
-                Password
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+            {isFileSecret && !isEditing ? (
+              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, backgroundColor: 'rgba(103, 80, 164, 0.04)' }}>
+                <AttachFileIcon sx={{ fontSize: '48px', color: 'var(--color-primary)' }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center', wordBreak: 'break-all' }}>
+                  {fileDetails?.filename}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 3, mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Size: <strong>{displayFileSize}</strong>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Type: <strong>{fileDetails?.mimeType}</strong>
+                  </Typography>
+                </Box>
+                
+                {binaryLoading ? (
+                  <Typography variant="caption" color="text.secondary">Loading preview...</Typography>
+                ) : (
+                  <>
+                    {fileDetails?.mimeType.startsWith('image/') && binaryBase64 && (
+                      <Box sx={{ maxWidth: '100%', maxHeight: '300px', display: 'flex', justifyContent: 'center', overflow: 'hidden', borderRadius: '8px', border: '1px solid var(--color-surface-variant)' }}>
+                        <img 
+                          src={`data:${fileDetails.mimeType};base64,${binaryBase64}`} 
+                          style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }} 
+                          alt="preview"
+                        />
+                      </Box>
+                    )}
+                    {fileDetails?.mimeType === 'application/pdf' && binaryBase64 && (
+                      <iframe 
+                        src={`data:${fileDetails.mimeType};base64,${binaryBase64}`} 
+                        width="100%" 
+                        height="400px" 
+                        style={{ border: 'none', borderRadius: '8px' }} 
+                        title="PDF preview"
+                      />
+                    )}
+                  </>
+                )}
+
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  onClick={() => {
+                    if (selectedSecretPath && fileDetails) {
+                      window.gopass.exportBinarySecret(selectedSecretPath, fileDetails.filename);
+                    }
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  Download File
+                </Button>
+              </Box>
+            ) : (
+              <>
+                {/* File Attachment Status in Edit Mode */}
+                {isEditing && pendingImportFile && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--color-primary)', borderRadius: '12px', padding: '12px 16px', backgroundColor: 'var(--color-primary-container)', color: 'var(--color-on-primary-container)' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AttachFileIcon />
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{pendingImportFile.name}</Typography>
+                        <Typography variant="caption">{(pendingImportFile.size / 1024).toFixed(1)} KB</Typography>
+                      </Box>
+                    </Box>
+                    <IconButton size="small" onClick={() => setPendingImportFile(null)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+
+                {/* Password Block */}
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
+                    Password
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      fullWidth
+                      type={showPassword ? 'text' : 'password'}
+                      value={activeSecret.password}
+                      onChange={(e) => setActiveSecret(prev => ({ ...prev, password: e.target.value }))}
+                      disabled={!isEditing}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                            </IconButton>
+                            <IconButton
+                              onClick={() => {
+                                if (window.clipboard) {
+                                  window.clipboard.writeText(activeSecret.password, true);
+                                } else {
+                                  navigator.clipboard.writeText(activeSecret.password);
+                                }
+                              }}
+                              edge="end"
+                              sx={{ ml: 1 }}
+                            >
+                              <CopyIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Box>
+
+                  {/* Password strength and generator panel */}
+                  {isEditing && (
+                    <Box sx={{ mt: 2, padding: '16px', borderRadius: '16px', border: '1px dashed var(--color-outline)' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                          Strength: <span style={{ color: passwordStrength.color }}>{passwordStrength.label} ({passwordStrength.entropy} bits entropy)</span>
+                        </Typography>
+                        <Button variant="text" size="small" startIcon={<GenerateIcon />} onClick={handleGeneratePassword}>
+                          Generate
+                        </Button>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 1.5 }}>
+                        <FormControlLabel
+                          control={<Switch size="small" checked={includeSymbols} onChange={(e) => setIncludeSymbols(e.target.checked)} />}
+                          label={<Typography variant="caption">Symbols</Typography>}
+                        />
+                        <FormControlLabel
+                          control={<Switch size="small" checked={includeDigits} onChange={(e) => setIncludeDigits(e.target.checked)} />}
+                          label={<Typography variant="caption">Digits</Typography>}
+                        />
+                        <FormControlLabel
+                          control={<Switch size="small" checked={passphraseGenerator} onChange={(e) => setPassphraseGenerator(e.target.checked)} />}
+                          label={<Typography variant="caption">Passphrase</Typography>}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="caption" sx={{ minWidth: '40px' }}>Length: {pwdLength}</Typography>
+                        <Slider
+                          size="small"
+                          value={pwdLength}
+                          onChange={(_, val) => setPwdLength(val as number)}
+                          min={8}
+                          max={64}
+                          sx={{ flex: 1 }}
+                        />
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Metadata Fields */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--color-primary)' }}>
+                      Metadata Fields
+                    </Typography>
+                    {isEditing && (
+                      <Button variant="text" size="small" onClick={handleAddMetaRow}>
+                        + Add Field
+                      </Button>
+                    )}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {Object.entries(activeSecret.metadata).map(([key, value]) => (
+                      <Box key={key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small"
+                          placeholder="Key"
+                          value={key}
+                          disabled={!isEditing}
+                          onChange={(e) => handleUpdateMetaKey(key, e.target.value)}
+                          sx={{ width: '40%' }}
+                        />
+                        <TextField
+                          size="small"
+                          placeholder="Value"
+                          value={value}
+                          disabled={!isEditing}
+                          onChange={(e) => handleUpdateMetaValue(key, e.target.value)}
+                          sx={{ flex: 1 }}
+                        />
+                        {isEditing && (
+                          <IconButton size="small" color="error" onClick={() => handleDeleteMetaKey(key)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              </>
+            )}
+
+            {/* Notes Block */}
+            {isEditing ? (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
+                  Notes
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, mb: 1, border: '1px solid var(--color-surface-variant)', borderRadius: '8px 8px 0 0', p: 0.5, backgroundColor: 'rgba(103, 80, 164, 0.04)', flexWrap: 'wrap' }}>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontWeight: 'bold' }} onClick={() => handleInsertMarkdown('bold')}>Bold</Button>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontStyle: 'italic' }} onClick={() => handleInsertMarkdown('italic')}>Italic</Button>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('h1')}>H1</Button>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('h2')}>H2</Button>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('link')}>Link</Button>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('code')}>Code</Button>
+                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('list')}>List</Button>
+                </Box>
                 <TextField
                   fullWidth
-                  type={showPassword ? 'text' : 'password'}
-                  value={activeSecret.password}
-                  onChange={(e) => setActiveSecret(prev => ({ ...prev, password: e.target.value }))}
-                  disabled={!isEditing}
+                  multiline
+                  inputRef={notesRef}
+                  rows={8}
+                  placeholder="Write arbitrary Secure Notes / GPG formatted bodies here..."
+                  value={activeSecret.rawBody}
+                  onChange={(e) => setActiveSecret(prev => ({ ...prev, rawBody: e.target.value }))}
                   InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                        </IconButton>
-                        <IconButton
-                          onClick={() => navigator.clipboard.writeText(activeSecret.password)}
-                          edge="end"
-                          sx={{ ml: 1 }}
-                        >
-                          <CopyIcon />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                    sx: { borderRadius: '0 0 8px 8px' }
                   }}
                 />
               </Box>
-
-              {/* Password strength and generator panel */}
-              {isEditing && (
-                <Box sx={{ mt: 2, padding: '16px', borderRadius: '16px', border: '1px dashed var(--color-outline)' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                      Strength: <span style={{ color: passwordStrength.color }}>{passwordStrength.label} ({passwordStrength.entropy} bits entropy)</span>
-                    </Typography>
-                    <Button variant="text" size="small" startIcon={<GenerateIcon />} onClick={handleGeneratePassword}>
-                      Generate
-                    </Button>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="caption" sx={{ minWidth: 60 }}>Length ({pwdLength})</Typography>
-                      <Slider
-                        size="small"
-                        value={pwdLength}
-                        min={8}
-                        max={64}
-                        onChange={(_, val) => setPwdLength(val as number)}
-                        sx={{ flex: 1 }}
-                      />
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <FormControlLabel
-                        control={<Switch size="small" checked={includeDigits} onChange={(e) => setIncludeDigits(e.target.checked)} />}
-                        label={<Typography variant="caption">Digits</Typography>}
-                      />
-                      <FormControlLabel
-                        control={<Switch size="small" checked={includeSymbols} onChange={(e) => setIncludeSymbols(e.target.checked)} />}
-                        label={<Typography variant="caption">Symbols</Typography>}
-                      />
-                      <FormControlLabel
-                        control={<Switch size="small" checked={passphraseGenerator} onChange={(e) => setPassphraseGenerator(e.target.checked)} />}
-                        label={<Typography variant="caption">Passphrase</Typography>}
-                      />
-                    </Box>
-                  </Box>
-                </Box>
-              )}
-            </Box>
-
-            {/* Metadata Block */}
-            <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, color: 'var(--color-outline)' }}>
-                  Metadata (YAML Key-Values)
-                </Typography>
-                {isEditing && (
-                  <Button variant="text" size="small" onClick={handleAddMetaRow}>
-                    + Add Field
-                  </Button>
-                )}
-              </Box>
-
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {Object.entries(activeSecret.metadata).map(([key, value]) => (
-                  <Box key={key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <TextField
-                      size="small"
-                      placeholder="Key"
-                      value={key}
-                      disabled={!isEditing}
-                      onChange={(e) => handleUpdateMetaKey(key, e.target.value)}
-                      sx={{ width: '40%' }}
-                    />
-                    <TextField
-                      size="small"
-                      placeholder="Value"
-                      value={value}
-                      disabled={!isEditing}
-                      onChange={(e) => handleUpdateMetaValue(key, e.target.value)}
-                      sx={{ flex: 1 }}
-                    />
-                    {isEditing && (
-                      <IconButton size="small" color="error" onClick={() => handleDeleteMetaKey(key)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-
-            {/* Notes Body Block */}
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
-                Secure Notes (Raw Text)
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={6}
-                value={activeSecret.rawBody}
-                onChange={(e) => setActiveSecret(prev => ({ ...prev, rawBody: e.target.value }))}
-                disabled={!isEditing}
-                placeholder="Write arbitrary Secure Notes / GPG formatted bodies here..."
-              />
-            </Box>
-
-            {/* Security Audit quick view */}
-            {!isEditing && (
-              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '16px' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ShieldIcon color="primary" fontSize="small" />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Security Compliance</Typography>
-                </Box>
-                <Typography variant="caption" color={activeSecret.password.length >= 12 ? 'success.main' : 'error.main'} sx={{ display: 'block' }}>
-                  • {activeSecret.password.length >= 12 ? 'Password meets standard length (12+ characters)' : 'Password is too short (< 12 characters)'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  • Securely encrypted using public GPG identities.
-                </Typography>
-              </Box>
-            )}
-
-            {/* GPG Recipients matrix (auditing) */}
-            {!isEditing && (
-              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '16px' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PeopleIcon color="primary" fontSize="small" />
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Decrypt Access Matrix</Typography>
-                  </Box>
-                  <Button variant="text" size="small" onClick={loadRecipients}>
-                    View
-                  </Button>
-                </Box>
-                {recipients.map((rec) => (
-                  <Typography key={rec} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    • {rec}
+            ) : (
+              activeSecret.rawBody && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
+                    Notes (Markdown Rendered)
                   </Typography>
-                ))}
-              </Box>
+                  <Box
+                    className="markdown-body"
+                    sx={{
+                      border: '1px solid var(--color-surface-variant)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      backgroundColor: 'rgba(103, 80, 164, 0.02)',
+                      minHeight: '100px',
+                      fontSize: '14px',
+                      lineHeight: '1.6'
+                    }}
+                    dangerouslySetInnerHTML={{
+                      __html: marked.parse(activeSecret.rawBody || '') as string
+                    }}
+                  />
+                </Box>
+              )
             )}
-
-            {/* Binary Drag Drop Integration */}
-            {isEditing && (
-              <Box sx={{ border: '1px dashed var(--color-outline)', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
-                <AttachFileIcon sx={{ color: 'var(--color-outline)', mb: 1 }} />
-                <Typography variant="body2">Drag and drop binary assets to inject</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  (SSL certificates, Secure SSH Identity Keys)
-                </Typography>
-              </Box>
-            )}
-
           </Box>
         ) : (
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '32px' }}>
@@ -1052,6 +1530,120 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           About
         </MenuItem>
       </Menu>
+
+      {/* MANAGE MOUNTS DIALOG */}
+      <Dialog open={manageMountsOpen} onClose={() => setManageMountsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>Manage Mounts / Stores</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Active Mounts</Typography>
+            <List sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '12px', p: 0 }}>
+              {mounts.map((m) => (
+                <ListItem
+                  key={m.alias}
+                  secondaryAction={
+                    !m.isRoot && (
+                      <IconButton 
+                        edge="end" 
+                        color="error" 
+                        onClick={async () => {
+                          if (confirm(`Are you sure you want to remove mount "${m.alias}"?`)) {
+                            try {
+                              await window.gopass.removeMount(m.alias);
+                              await loadMountsList();
+                              await loadSecretsList();
+                            } catch (err: any) {
+                              alert(`Failed to remove mount: ${err.message}`);
+                            }
+                          }
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    )
+                  }
+                  sx={{
+                    borderBottom: '1px solid var(--color-surface-variant)',
+                    '&:last-child': { borderBottom: 'none' }
+                  }}
+                >
+                  <ListItemText
+                    primary={<strong>{m.alias === 'root' ? 'Root Store (root)' : m.alias}</strong>}
+                    secondary={m.path}
+                    secondaryTypographyProps={{ style: { wordBreak: 'break-all' } }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+
+          <Divider />
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Add New Mount</Typography>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                size="small"
+                label="Alias"
+                placeholder="e.g. personal"
+                value={newMountAlias}
+                onChange={(e) => setNewMountAlias(e.target.value)}
+                sx={{ width: '35%' }}
+              />
+              <TextField
+                size="small"
+                label="Directory Path"
+                placeholder="Absolute path"
+                value={newMountPath}
+                onChange={(e) => setNewMountPath(e.target.value)}
+                sx={{ flex: 1 }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button
+                        size="small"
+                        onClick={async () => {
+                          const dir = await window.windowControl.selectDirectory();
+                          if (dir) {
+                            setNewMountPath(dir);
+                          }
+                        }}
+                        sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }}
+                      >
+                        Browse...
+                      </Button>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Box>
+            <Button
+              variant="contained"
+              onClick={async () => {
+                if (!newMountAlias.trim() || !newMountPath.trim()) {
+                  alert('Please provide both an alias and directory path');
+                  return;
+                }
+                try {
+                  await window.gopass.addMount(newMountAlias.trim(), newMountPath.trim());
+                  setNewMountAlias('');
+                  setNewMountPath('');
+                  await loadMountsList();
+                  await loadSecretsList();
+                } catch (err: any) {
+                  alert(`Failed to add mount: ${err.message}`);
+                }
+              }}
+              sx={{ alignSelf: 'flex-end', borderRadius: '8px' }}
+            >
+              Add Mount
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ padding: '16px 24px' }}>
+          <Button onClick={() => setManageMountsOpen(false)} variant="outlined">Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* About Dialog */}
       <Dialog open={aboutOpen} onClose={() => setAboutOpen(false)} maxWidth="xs" fullWidth>

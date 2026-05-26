@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('gopass', {
   deleteSecret: (path: string): Promise<void> => ipcRenderer.invoke('gopass:delete', path),
   syncSecrets: (): Promise<void> => ipcRenderer.invoke('gopass:sync'),
   pwgen: (argsStr: string): Promise<string> => ipcRenderer.invoke('gopass:pwgen', argsStr),
+  listMounts: (): Promise<any[]> => ipcRenderer.invoke('gopass:mounts:list'),
+  addMount: (alias: string, path: string): Promise<void> => ipcRenderer.invoke('gopass:mounts:add', alias, path),
+  removeMount: (alias: string): Promise<void> => ipcRenderer.invoke('gopass:mounts:remove', alias),
+  readBinarySecret: (secretPath: string): Promise<string> => ipcRenderer.invoke('gopass:binary:read', secretPath),
+  importBinarySecret: (secretPath: string, localPath: string): Promise<void> => ipcRenderer.invoke('gopass:binary:import', secretPath, localPath),
+  exportBinarySecret: (secretPath: string, filename: string): Promise<void> => ipcRenderer.invoke('gopass:binary:export', secretPath, filename),
 });
 
 contextBridge.exposeInMainWorld('config', {
@@ -35,6 +41,7 @@ contextBridge.exposeInMainWorld('windowControl', {
   maximize: (): Promise<void> => ipcRenderer.invoke('win:maximize'),
   close: (): Promise<void> => ipcRenderer.invoke('win:close'),
   hidePwgen: (): Promise<void> => ipcRenderer.invoke('win:hide-pwgen'),
+  selectDirectory: (): Promise<string | null> => ipcRenderer.invoke('win:select-directory'),
   onShowQuickAccess: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('quick-access:show', listener);
@@ -49,4 +56,8 @@ contextBridge.exposeInMainWorld('windowControl', {
       ipcRenderer.removeListener('pwgen:show', listener);
     };
   },
+});
+
+contextBridge.exposeInMainWorld('clipboard', {
+  writeText: (text: string, isPassword?: boolean): Promise<void> => ipcRenderer.invoke('clipboard:write', text, isPassword),
 });

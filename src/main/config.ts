@@ -46,7 +46,7 @@ const DEFAULT_CONFIG: AppConfig = {
   application: {
     start_at_login: true,
     hide_on_blur: true,
-    clipboard_purge_delay_seconds: 45,
+    clipboard_purge_delay_seconds: 30,
     global_hotkey: 'CommandOrControl+Shift+P',
     show_dashboard_on_startup: true,
     shortcut_copy_password: 'Control+C',

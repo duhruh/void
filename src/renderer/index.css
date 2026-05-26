@@ -260,3 +260,90 @@ input, textarea, button {
 .window-content, input, button, select, textarea, [role="button"], .nav-tree-item, .MuiListItem-root, .MuiButtonBase-root, .MuiSlider-root {
   -webkit-app-region: no-drag;
 }
+
+/* Markdown rendering styling */
+.markdown-body {
+  font-family: var(--font-body);
+  user-select: text; /* Allow highlighting and copying notes contents */
+  color: var(--color-on-surface);
+  word-wrap: break-word;
+}
+
+.markdown-body * {
+  user-select: text; /* Ensure nested elements allow selection */
+}
+
+.markdown-body p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 12px;
+  color: var(--color-primary);
+}
+
+.markdown-body h1 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid var(--color-surface-variant);
+  padding-bottom: 6px;
+}
+
+.markdown-body h2 {
+  font-size: 1.25rem;
+}
+
+.markdown-body h3 {
+  font-size: 1.1rem;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin-bottom: 12px;
+  padding-left: 24px;
+}
+
+.markdown-body li {
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.markdown-body a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  background-color: rgba(103, 80, 164, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.markdown-body pre {
+  background-color: rgba(103, 80, 164, 0.04);
+  border: 1px solid var(--color-surface-variant);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85em;
+  display: block;
+}

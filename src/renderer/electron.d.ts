@@ -15,6 +15,12 @@ declare global {
       deleteSecret(path: string): Promise<void>;
       syncSecrets(): Promise<void>;
       pwgen(argsStr: string): Promise<string>;
+      listMounts(): Promise<Array<{ alias: string; path: string; isRoot: boolean }>>;
+      addMount(alias: string, path: string): Promise<void>;
+      removeMount(alias: string): Promise<void>;
+      readBinarySecret(secretPath: string): Promise<string>;
+      importBinarySecret(secretPath: string, localPath: string): Promise<void>;
+      exportBinarySecret(secretPath: string, filename: string): Promise<void>;
     };
     config: {
       loadConfig(): Promise<AppConfig>;
@@ -28,8 +34,12 @@ declare global {
       maximize(): Promise<void>;
       close(): Promise<void>;
       hidePwgen(): Promise<void>;
+      selectDirectory(): Promise<string | null>;
       onShowQuickAccess(callback: () => void): () => void;
       onShowPwgen(callback: () => void): () => void;
+    };
+    clipboard: {
+      writeText(text: string, isPassword?: boolean): Promise<void>;
     };
   }
 }
