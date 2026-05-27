@@ -52,6 +52,19 @@ function updateAppIcons() {
   }
 }
 
+function updateContentProtection() {
+  const protect = !(currentConfig?.developer?.enabled && currentConfig?.developer?.enable_screenshots);
+  if (quickAccessWindow && !quickAccessWindow.isDestroyed()) {
+    quickAccessWindow.setContentProtection(protect);
+  }
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    dashboardWindow.setContentProtection(protect);
+  }
+  if (pwgenWindow && !pwgenWindow.isDestroyed()) {
+    pwgenWindow.setContentProtection(protect);
+  }
+}
+
 function checkDevServer(): Promise<boolean> {
   return new Promise((resolve) => {
     const request = net.request({
@@ -135,7 +148,7 @@ function createQuickAccessWindow(useDevServer: boolean) {
   });
 
   // Enable Screen Capture Block (Window Occlusion)
-  quickAccessWindow.setContentProtection(true);
+  updateContentProtection();
 
   const devServerUrl = 'http://localhost:5173/#/quick-access';
   const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/quick-access`;
@@ -172,7 +185,7 @@ function createDashboardWindow(useDevServer: boolean) {
   });
 
   // Enable Screen Capture Block (Window Occlusion)
-  dashboardWindow.setContentProtection(true);
+  updateContentProtection();
 
   const devServerUrl = 'http://localhost:5173/#/dashboard';
   const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/dashboard`;
@@ -213,7 +226,7 @@ function createPwgenWindow(useDevServer: boolean) {
     }
   });
 
-  pwgenWindow.setContentProtection(true);
+  updateContentProtection();
 
   const devServerUrl = 'http://localhost:5173/#/pwgen';
   const localFilePath = `file://${path.resolve(__dirname, '../../dist/index.html')}#/pwgen`;
@@ -346,6 +359,7 @@ function setupIpcHandlers() {
     saveConfig(config);
     registerGlobalShortcut();
     updateAppIcons();
+    updateContentProtection();
     applyLoginSettings(config);
 
     // Broadcast config change to all windows
@@ -468,7 +482,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('gopass:update:check', async () => {
-    if (process.env.VOID_DEBUG_UPDATE === 'true' || currentConfig.developer?.simulate_updates) {
+    if (process.env.VOID_DEBUG_UPDATE === 'true' || (currentConfig.developer?.enabled && currentConfig.developer?.simulate_updates)) {
       return {
         updateAvailable: true,
         version: '9.9.9-debug',
@@ -521,7 +535,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('gopass:update:install', async (_, url: string) => {
-    if (process.env.VOID_DEBUG_UPDATE === 'true' || currentConfig.developer?.simulate_updates) {
+    if (process.env.VOID_DEBUG_UPDATE === 'true' || (currentConfig.developer?.enabled && currentConfig.developer?.simulate_updates)) {
       return new Promise<void>((resolve) => {
         let progress = 0;
         const timer = setInterval(() => {

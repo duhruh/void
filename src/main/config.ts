@@ -41,6 +41,7 @@ export interface AppConfig {
   developer?: {
     enabled?: boolean;
     simulate_updates?: boolean;
+    enable_screenshots?: boolean;
   };
 }
 
@@ -101,6 +102,7 @@ const DEFAULT_CONFIG: AppConfig = {
   developer: {
     enabled: false,
     simulate_updates: false,
+    enable_screenshots: false,
   },
 };
 

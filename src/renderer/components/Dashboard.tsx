@@ -207,12 +207,17 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         developer: {
           ...config.developer,
           enabled: isEnabled,
-          simulate_updates: isEnabled ? config.developer?.simulate_updates : false
+          simulate_updates: isEnabled ? (config.developer?.simulate_updates ?? false) : false,
+          enable_screenshots: isEnabled ? (config.developer?.enable_screenshots ?? false) : false
         }
       };
       
       await window.config.saveConfig(updatedConfig);
       setConfig(updatedConfig);
+      
+      if (!isEnabled) {
+        setUpdateInfo({ updateAvailable: false });
+      }
       
       showToast(isEnabled 
         ? "Developer Mode Enabled! Developer options unlocked." 
@@ -1818,12 +1823,39 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         <MenuItem
           onClick={async () => {
             setDevMenuAnchor(null);
+            const isScreenshotsEnabled = !config.developer?.enable_screenshots;
+            const updatedConfig = {
+              ...config,
+              developer: {
+                ...config.developer,
+                enable_screenshots: isScreenshotsEnabled
+              }
+            };
+            await window.config.saveConfig(updatedConfig);
+            setConfig(updatedConfig);
+          }}
+          sx={{ fontSize: '13px', py: 1, px: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}
+        >
+          <Box sx={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {config.developer?.enable_screenshots && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </Box>
+          Allow screenshots
+        </MenuItem>
+
+        <MenuItem
+          onClick={async () => {
+            setDevMenuAnchor(null);
             const updatedConfig = {
               ...config,
               developer: {
                 ...config.developer,
                 enabled: false,
-                simulate_updates: false
+                simulate_updates: false,
+                enable_screenshots: false
               }
             };
             await window.config.saveConfig(updatedConfig);
@@ -2416,24 +2448,44 @@ function SettingsDialog({ open, onClose, config, onSave, appVersion, onCheckForU
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: 'var(--color-primary)' }}>
               Developer Settings
             </Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={localConfig.developer?.simulate_updates || false}
-                  onChange={(e) =>
-                    setLocalConfig((prev) => ({
-                      ...prev,
-                      developer: {
-                        ...prev.developer,
-                        simulate_updates: e.target.checked
-                      }
-                    }))
-                  }
-                />
-              }
-              label={<Typography variant="body2">Simulate application updates (VOID_DEBUG_UPDATE)</Typography>}
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={localConfig.developer?.simulate_updates || false}
+                    onChange={(e) =>
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        developer: {
+                          ...prev.developer,
+                          simulate_updates: e.target.checked
+                        }
+                      }))
+                    }
+                  />
+                }
+                label={<Typography variant="body2">Simulate application updates (VOID_DEBUG_UPDATE)</Typography>}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={localConfig.developer?.enable_screenshots || false}
+                    onChange={(e) =>
+                      setLocalConfig((prev) => ({
+                        ...prev,
+                        developer: {
+                          ...prev.developer,
+                          enable_screenshots: e.target.checked
+                        }
+                      }))
+                    }
+                  />
+                }
+                label={<Typography variant="body2">Allow screenshots and screen capturing</Typography>}
+              />
+            </Box>
           </Box>
         )}
 

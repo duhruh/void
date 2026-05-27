@@ -47,6 +47,7 @@ vi.mock('./gopass', () => {
 vi.mock('electron', () => {
   const mockWindow = {
     setContentProtection: vi.fn(),
+    isDestroyed: vi.fn().mockReturnValue(false),
     loadURL: vi.fn(),
     on: vi.fn(),
     hide: vi.fn(),
