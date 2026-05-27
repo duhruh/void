@@ -15,7 +15,8 @@
     "build:pack": "npm run build && electron-builder",
     "pack:win": "electron-builder --windows",
     "pack:mac": "electron-builder --mac",
-    "pack:linux": "electron-builder --linux"
+    "pack:linux": "electron-builder --linux",
+    "version": "node scripts/update-version-json.js && git add docs/update.json"
   },
   "build": {
     "appId": "com.void.desktop",

@@ -21,6 +21,10 @@ declare global {
       readBinarySecret(secretPath: string): Promise<string>;
       importBinarySecret(secretPath: string, localPath: string): Promise<void>;
       exportBinarySecret(secretPath: string, filename: string): Promise<void>;
+      getVersion(): Promise<string>;
+      checkForUpdates(): Promise<{ updateAvailable: boolean; version?: string; url?: string; error?: string }>;
+      installUpdate(url: string): Promise<void>;
+      onUpdateProgress(callback: (progress: number) => void): () => void;
     };
     config: {
       loadConfig(): Promise<AppConfig>;

@@ -462,6 +462,146 @@ function setupIpcHandlers() {
       }, delay);
     }
   });
+
+  ipcMain.handle('gopass:version', async () => {
+    return app.getVersion();
+  });
+
+  ipcMain.handle('gopass:update:check', async () => {
+    try {
+      const response = await net.fetch('https://duhruh.me/void/update.json');
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+      const data = await response.json();
+      
+      const currentVersion = app.getVersion();
+      const remoteVersion = data.version;
+      
+      const cleanV1 = currentVersion.replace(/^v/, '');
+      const cleanV2 = remoteVersion.replace(/^v/, '');
+      const parts1 = cleanV1.split('.').map(Number);
+      const parts2 = cleanV2.split('.').map(Number);
+      
+      let isNewer = false;
+      for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const p1 = parts1[i] || 0;
+        const p2 = parts2[i] || 0;
+        if (p2 > p1) {
+          isNewer = true;
+          break;
+        }
+        if (p1 > p2) {
+          break;
+        }
+      }
+      
+      if (isNewer) {
+        const platformKey = `${process.platform}-${process.arch}`;
+        const url = data.platforms[platformKey] || data.platforms[`${process.platform}-x64`] || '';
+        return {
+          updateAvailable: !!url,
+          version: remoteVersion,
+          url
+        };
+      }
+      
+      return { updateAvailable: false };
+    } catch (err: any) {
+      console.error('Update check failed:', err);
+      return { updateAvailable: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('gopass:update:install', async (_, url: string) => {
+    return new Promise<void>((resolve, reject) => {
+      const tempDir = app.getPath('temp');
+      const ext = path.extname(url) || (process.platform === 'win32' ? '.exe' : '');
+      const installerPath = path.join(tempDir, `void_installer_${Date.now()}${ext}`);
+      
+      console.log(`Starting update download from: ${url} to: ${installerPath}`);
+      
+      const request = net.request(url);
+      request.on('response', (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download installer: HTTP ${response.statusCode}`));
+          return;
+        }
+        
+        const totalBytes = parseInt(response.headers['content-length'] as string || '0', 10);
+        let downloadedBytes = 0;
+        const fileStream = fs.createWriteStream(installerPath);
+        
+        response.on('data', (chunk) => {
+          downloadedBytes += chunk.length;
+          fileStream.write(chunk);
+          
+          if (totalBytes > 0) {
+            const percent = Math.round((downloadedBytes / totalBytes) * 100);
+            if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+              dashboardWindow.webContents.send('gopass:update:progress', { progress: percent });
+            }
+          }
+        });
+        
+        response.on('end', () => {
+          fileStream.end();
+        });
+        
+        fileStream.on('finish', () => {
+          console.log(`Download finished. Executing installer: ${installerPath}`);
+          try {
+            if (process.platform === 'win32') {
+              const updaterBatPath = path.join(tempDir, 'void_updater.bat');
+              const appPath = process.execPath;
+              const batchContent = `@echo off
+timeout /t 2 /nobreak > nul
+start "" /wait "${installerPath}" /S
+start "" "${appPath}"
+del "%~f0"
+`;
+              fs.writeFileSync(updaterBatPath, batchContent, 'utf-8');
+              
+              const { spawn } = require('child_process');
+              const child = spawn('cmd.exe', ['/c', updaterBatPath], {
+                detached: true,
+                stdio: 'ignore',
+                windowsHide: true
+              });
+              child.unref();
+              
+              resolve();
+              (app as any).isQuitting = true;
+              app.quit();
+            } else {
+              const { shell } = require('electron');
+              shell.openPath(installerPath).then((errStr: string) => {
+                if (errStr) {
+                  reject(new Error(errStr));
+                } else {
+                  resolve();
+                  (app as any).isQuitting = true;
+                  app.quit();
+                }
+              }).catch(reject);
+            }
+          } catch (err) {
+            reject(err);
+          }
+        });
+        
+        fileStream.on('error', (err) => {
+          reject(err);
+        });
+      });
+      
+      request.on('error', (err) => {
+        reject(err);
+      });
+      
+      request.end();
+    });
+  });
 }
 
 // App lifecycle

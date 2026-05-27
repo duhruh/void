@@ -120,6 +120,63 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const [helpMenuAnchor, setHelpMenuAnchor] = useState<null | HTMLElement>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
 
+  // Update State
+  const [updateInfo, setUpdateInfo] = useState<{
+    updateAvailable: boolean;
+    version?: string;
+    url?: string;
+  } | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('1.0.0');
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleCheckForUpdates = async (isManual = false) => {
+    if (window.gopass) {
+      try {
+        const result = await window.gopass.checkForUpdates();
+        if (result.updateAvailable) {
+          setUpdateInfo({
+            updateAvailable: true,
+            version: result.version,
+            url: result.url
+          });
+          if (isManual) {
+            setUpdateDialogOpen(true);
+          }
+        } else {
+          setUpdateInfo({ updateAvailable: false });
+          if (isManual) {
+            if (result.error) {
+              alert(`Error checking for updates: ${result.error}`);
+            } else {
+              alert(`Void is up to date!\n\nVersion v${appVersion} is currently the latest version.`);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('Failed to check for updates:', err);
+        if (isManual) {
+          alert(`Failed to check for updates: ${err.message || String(err)}`);
+        }
+      }
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!updateInfo || !updateInfo.url || !window.gopass) return;
+    setIsUpdating(true);
+    setDownloadProgress(0);
+    try {
+      await window.gopass.installUpdate(updateInfo.url);
+    } catch (err: any) {
+      console.error('Update installation failed:', err);
+      alert(`Update installation failed: ${err.message || String(err)}`);
+      setIsUpdating(false);
+      setDownloadProgress(null);
+    }
+  };
+
   // Entropy Generator state
   const [pwdLength, setPwdLength] = useState(16);
   const [includeSymbols, setIncludeSymbols] = useState(true);
@@ -162,6 +219,28 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     if (focused) {
       localStorage.removeItem('focused-secret-path');
       selectSecret(focused);
+    }
+
+    if (window.gopass) {
+      window.gopass.getVersion().then((v) => {
+        setAppVersion(v);
+        config.version = v;
+      }).catch(err => console.error('Failed to get version:', err));
+
+      handleCheckForUpdates(false);
+
+      const interval = setInterval(() => {
+        handleCheckForUpdates(false);
+      }, 60 * 60 * 1000);
+
+      const unsubscribe = window.gopass.onUpdateProgress((progress) => {
+        setDownloadProgress(progress);
+      });
+
+      return () => {
+        clearInterval(interval);
+        unsubscribe();
+      };
     }
   }, []);
 
@@ -724,15 +803,43 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           </Box>
         </Box>
         
-        <Box className="window-titlebar-controls">
-          <Box className="window-titlebar-btn" onClick={() => window.windowControl.minimize()}>
-            <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1.5"/></svg>
-          </Box>
-          <Box className="window-titlebar-btn" onClick={() => window.windowControl.maximize()}>
-            <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
-          </Box>
-          <Box className="window-titlebar-btn close" onClick={() => window.windowControl.close()}>
-            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M 1,1 L 9,9 M 9,1 L 1,9" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', WebkitAppRegion: 'no-drag' }}>
+          {updateInfo?.updateAvailable && (
+            <Button
+              className="pulse"
+              onClick={() => setUpdateDialogOpen(true)}
+              sx={{
+                mr: 2,
+                px: 1.5,
+                py: 0.5,
+                minWidth: 'auto',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: 'var(--color-on-success)',
+                backgroundColor: 'var(--color-success)',
+                borderRadius: '20px',
+                height: '24px',
+                textTransform: 'none',
+                transition: 'background-color var(--transition-short)',
+                '&:hover': {
+                  backgroundColor: 'var(--color-success-container)',
+                  color: 'var(--color-on-success-container)',
+                }
+              }}
+            >
+              Update Available
+            </Button>
+          )}
+          <Box className="window-titlebar-controls">
+            <Box className="window-titlebar-btn" onClick={() => window.windowControl.minimize()}>
+              <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </Box>
+            <Box className="window-titlebar-btn" onClick={() => window.windowControl.maximize()}>
+              <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </Box>
+            <Box className="window-titlebar-btn close" onClick={() => window.windowControl.close()}>
+              <svg width="10" height="10" viewBox="0 0 10 10"><path d="M 1,1 L 9,9 M 9,1 L 1,9" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </Box>
           </Box>
         </Box>
 
@@ -1456,6 +1563,8 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         onClose={() => setSettingsOpen(false)}
         config={config}
         onSave={handleSaveSettings}
+        appVersion={appVersion}
+        onCheckForUpdates={() => handleCheckForUpdates(true)}
       />
 
       {/* File Menu */}
@@ -1490,6 +1599,12 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           sx={{ fontSize: '13px', py: 1, px: 2 }}
         >
           Settings
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setFileMenuAnchor(null); handleCheckForUpdates(true); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Check for Updates
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
@@ -1559,6 +1674,12 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           sx={{ fontSize: '13px', py: 1, px: 2 }}
         >
           Quick Access Info
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setHelpMenuAnchor(null); handleCheckForUpdates(true); }}
+          sx={{ fontSize: '13px', py: 1, px: 2 }}
+        >
+          Check for Updates
         </MenuItem>
         <MenuItem
           onClick={() => { setHelpMenuAnchor(null); setAboutOpen(true); }}
@@ -1698,6 +1819,106 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         </DialogActions>
       </Dialog>
 
+      {/* Update Available Dialog */}
+      <Dialog
+        open={updateDialogOpen}
+        onClose={isUpdating ? undefined : () => setUpdateDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>
+          {isUpdating ? 'Installing Update' : 'Update Available'}
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, pt: 2, pb: 1 }}>
+          {!isUpdating ? (
+            <>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--color-success-container)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-on-success-container)',
+                }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </Box>
+              <Typography variant="body1" align="center" sx={{ fontWeight: 500 }}>
+                A new version (v{updateInfo?.version}) is available.
+              </Typography>
+              <Typography variant="body2" align="center" color="text.secondary">
+                You are currently running version v{appVersion}. Would you like to download and silently install the update now?
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                <CircularProgress
+                  variant="determinate"
+                  value={downloadProgress || 0}
+                  size={64}
+                  thickness={5}
+                  sx={{ color: 'var(--color-success)' }}
+                />
+                <Box
+                  sx={{
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    right: 0,
+                    position: 'absolute',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Typography variant="caption" component="div" color="text.secondary" sx={{ fontWeight: 600 }}>
+                    {downloadProgress !== null ? `${downloadProgress}%` : '0%'}
+                  </Typography>
+                </Box>
+              </Box>
+              <Typography variant="body1" align="center" sx={{ fontWeight: 500 }}>
+                {downloadProgress !== null && downloadProgress >= 100 
+                  ? 'Installing and restarting...' 
+                  : `Downloading update... ${downloadProgress || 0}%`
+                }
+              </Typography>
+              <Typography variant="body2" align="center" color="text.secondary">
+                Please do not close the application.
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ padding: '16px 24px' }}>
+          {!isUpdating && (
+            <>
+              <Button onClick={() => setUpdateDialogOpen(false)} variant="outlined">Later</Button>
+              <Button 
+                onClick={handleInstallUpdate} 
+                variant="contained" 
+                sx={{ 
+                  backgroundColor: 'var(--color-success)', 
+                  color: 'var(--color-on-success)', 
+                  '&:hover': { 
+                    backgroundColor: 'var(--color-success-container)', 
+                    color: 'var(--color-on-success-container)' 
+                  } 
+                }}
+              >
+                Download & Install
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -1715,9 +1936,11 @@ interface SettingsDialogProps {
   onClose: () => void;
   config: AppConfig;
   onSave: (config: AppConfig) => void;
+  appVersion: string;
+  onCheckForUpdates: () => void;
 }
 
-function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) {
+function SettingsDialog({ open, onClose, config, onSave, appVersion, onCheckForUpdates }: SettingsDialogProps) {
   const [localConfig, setLocalConfig] = useState<AppConfig>({ ...config });
   const [recordingField, setRecordingField] = useState<string | null>(null);
 
@@ -1980,6 +2203,27 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
               }))
             }
           />
+        </Box>
+
+        {/* App Version & Updates */}
+        <Box sx={{ borderTop: '1px solid var(--glass-border)', pt: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>App Version & Updates</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="body2" sx={{ color: 'var(--color-on-surface-variant)' }}>
+              Current Version: v{appVersion}
+            </Typography>
+            <Button 
+              size="small" 
+              variant="outlined" 
+              onClick={() => {
+                onClose();
+                onCheckForUpdates();
+              }} 
+              sx={{ textTransform: 'none', borderRadius: '8px' }}
+            >
+              Check for Updates Now
+            </Button>
+          </Box>
         </Box>
 
       </DialogContent>

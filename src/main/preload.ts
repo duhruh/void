@@ -20,6 +20,16 @@ contextBridge.exposeInMainWorld('gopass', {
   readBinarySecret: (secretPath: string): Promise<string> => ipcRenderer.invoke('gopass:binary:read', secretPath),
   importBinarySecret: (secretPath: string, localPath: string): Promise<void> => ipcRenderer.invoke('gopass:binary:import', secretPath, localPath),
   exportBinarySecret: (secretPath: string, filename: string): Promise<void> => ipcRenderer.invoke('gopass:binary:export', secretPath, filename),
+  getVersion: (): Promise<string> => ipcRenderer.invoke('gopass:version'),
+  checkForUpdates: (): Promise<{ updateAvailable: boolean; version?: string; url?: string; error?: string }> => ipcRenderer.invoke('gopass:update:check'),
+  installUpdate: (url: string): Promise<void> => ipcRenderer.invoke('gopass:update:install', url),
+  onUpdateProgress: (callback: (progress: number) => void) => {
+    const listener = (_event: any, data: { progress: number }) => callback(data.progress);
+    ipcRenderer.on('gopass:update:progress', listener);
+    return () => {
+      ipcRenderer.removeListener('gopass:update:progress', listener);
+    };
+  }
 });
 
 contextBridge.exposeInMainWorld('config', {

@@ -83,6 +83,10 @@ describe('Dashboard Component', () => {
       readBinarySecret: vi.fn().mockResolvedValue(''),
       importBinarySecret: vi.fn().mockResolvedValue(undefined),
       exportBinarySecret: vi.fn().mockResolvedValue(undefined),
+      getVersion: vi.fn().mockResolvedValue('1.0.2'),
+      checkForUpdates: vi.fn().mockResolvedValue({ updateAvailable: false }),
+      installUpdate: vi.fn().mockResolvedValue(undefined),
+      onUpdateProgress: vi.fn().mockReturnValue(vi.fn()),
     };
   });
 
@@ -249,5 +253,19 @@ describe('Dashboard Component', () => {
     expect(screen.getByText('Download File')).toBeInTheDocument();
     expect(await screen.findByText('File Contents (Plain Text)')).toBeInTheDocument();
     expect(screen.getByText('System started successfully')).toBeInTheDocument();
+  });
+
+  it('renders pulsing update button in title bar when update is available', async () => {
+    window.gopass.checkForUpdates = vi.fn().mockResolvedValue({
+      updateAvailable: true,
+      version: '1.0.3',
+      url: 'https://github.com/duhruh/void/releases/download/v1.0.3/Void-1.0.3.exe',
+    });
+
+    await act(async () => {
+      render(<Dashboard config={mockConfig} setConfig={mockSetConfig} />);
+    });
+
+    expect(await screen.findByText('Update Available')).toBeInTheDocument();
   });
 });
