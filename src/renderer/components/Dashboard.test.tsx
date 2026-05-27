@@ -1,3 +1,15 @@
+vi.mock('react-pdf', () => {
+  return {
+    Document: ({ children }: any) => <div data-testid="mock-pdf-document">{children}</div>,
+    Page: ({ pageNumber }: any) => <div data-testid="mock-pdf-page">Page {pageNumber}</div>,
+    pdfjs: {
+      GlobalWorkerOptions: {
+        workerSrc: '',
+      },
+    },
+  };
+});
+
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
@@ -147,5 +159,95 @@ describe('Dashboard Component', () => {
 
     // About item should show up in menu
     expect(screen.getByText('About')).toBeInTheDocument();
+  });
+
+  it('renders image previews correctly for image file secrets', async () => {
+    window.gopass.showSecret = vi.fn().mockResolvedValue({
+      password: '[Void Secure File]',
+      metadata: {
+        'Content-Disposition': 'attachment; filename="screenshot.png"',
+        'Content-Transfer-Encoding': 'Base64',
+        'mimeType': 'image/png',
+        'size': '1024',
+      },
+      rawBody: '',
+    });
+    window.gopass.readBinarySecret = vi.fn().mockResolvedValue('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+
+    await act(async () => {
+      render(<Dashboard config={mockConfig} setConfig={mockSetConfig} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('banking')[0]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('chase')[0]);
+    });
+
+    expect(await screen.findByText('screenshot.png')).toBeInTheDocument();
+    expect(screen.getByText('Download File')).toBeInTheDocument();
+    
+    const img = await screen.findByRole('img', { name: /preview/i });
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', expect.stringContaining('data:image/png;base64,'));
+  });
+
+  it('renders pdf document preview correctly for PDF secrets', async () => {
+    window.gopass.showSecret = vi.fn().mockResolvedValue({
+      password: '[Void Secure File]',
+      metadata: {
+        'Content-Disposition': 'attachment; filename="document.pdf"',
+        'mimeType': 'application/pdf',
+      },
+      rawBody: '',
+    });
+    window.gopass.readBinarySecret = vi.fn().mockResolvedValue('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+
+    await act(async () => {
+      render(<Dashboard config={mockConfig} setConfig={mockSetConfig} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('banking')[0]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('chase')[0]);
+    });
+
+    expect(await screen.findByText('document.pdf')).toBeInTheDocument();
+    expect(screen.getByText('Download File')).toBeInTheDocument();
+    expect(await screen.findByTestId('mock-pdf-document')).toBeInTheDocument();
+  });
+
+  it('renders flat text file contents correctly for plain text secrets', async () => {
+    window.gopass.showSecret = vi.fn().mockResolvedValue({
+      password: '[Void Secure File]',
+      metadata: {
+        'Content-Disposition': 'attachment; filename="system.log"',
+        'mimeType': 'text/plain',
+      },
+      rawBody: '',
+    });
+    window.gopass.readBinarySecret = vi.fn().mockResolvedValue('U3lzdGVtIHN0YXJ0ZWQgc3VjY2Vzc2Z1bGx5');
+
+    await act(async () => {
+      render(<Dashboard config={mockConfig} setConfig={mockSetConfig} />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('banking')[0]);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByText('chase')[0]);
+    });
+
+    expect(await screen.findByText('system.log')).toBeInTheDocument();
+    expect(screen.getByText('Download File')).toBeInTheDocument();
+    expect(await screen.findByText('File Contents (Plain Text)')).toBeInTheDocument();
+    expect(screen.getByText('System started successfully')).toBeInTheDocument();
   });
 });

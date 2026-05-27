@@ -25,6 +25,7 @@ import {
   Tooltip,
   Menu,
   MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/FolderOutlined';
 import OpenFolderIcon from '@mui/icons-material/FolderOpenOutlined';
@@ -47,6 +48,16 @@ import { SecretData } from '../../main/gopass';
 import lightIcon from '../../assets/light.svg';
 import darkIcon from '../../assets/dark.svg';
 import { marked } from 'marked';
+import { Document, Page, pdfjs } from 'react-pdf';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeftOutlined';
+import ChevronRightIcon from '@mui/icons-material/ChevronRightOutlined';
+import RemoveIcon from '@mui/icons-material/RemoveOutlined';
+
+// Configure react-pdf worker
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 interface DashboardProps {
   config: AppConfig;
@@ -1130,57 +1141,70 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             )}
 
             {isFileSecret && !isEditing ? (
-              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, backgroundColor: 'rgba(103, 80, 164, 0.04)' }}>
-                <AttachFileIcon sx={{ fontSize: '48px', color: 'var(--color-primary)' }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, textAlign: 'center', wordBreak: 'break-all' }}>
-                  {fileDetails?.filename}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 3, mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Size: <strong>{displayFileSize}</strong>
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Type: <strong>{fileDetails?.mimeType}</strong>
-                  </Typography>
+              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: 2, backgroundColor: 'rgba(103, 80, 164, 0.02)', flex: 1, minHeight: 0 }}>
+                {/* File Metadata Header */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', borderBottom: '1px solid var(--color-surface-variant)', pb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <AttachFileIcon sx={{ fontSize: '28px', color: 'var(--color-primary)' }} />
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, wordBreak: 'break-all' }}>
+                        {fileDetails?.filename}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Size: <strong>{displayFileSize}</strong> | Type: <strong>{fileDetails?.mimeType}</strong>
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={() => {
+                      if (selectedSecretPath && fileDetails) {
+                        window.gopass.exportBinarySecret(selectedSecretPath, fileDetails.filename);
+                      }
+                    }}
+                    startIcon={<AttachFileIcon sx={{ transform: 'rotate(180deg)' }} />}
+                    sx={{ borderRadius: '8px', textTransform: 'none' }}
+                  >
+                    Download File
+                  </Button>
                 </Box>
                 
-                {binaryLoading ? (
-                  <Typography variant="caption" color="text.secondary">Loading preview...</Typography>
-                ) : (
-                  <>
-                    {fileDetails?.mimeType.startsWith('image/') && binaryBase64 && (
-                      <Box sx={{ maxWidth: '100%', maxHeight: '300px', display: 'flex', justifyContent: 'center', overflow: 'hidden', borderRadius: '8px', border: '1px solid var(--color-surface-variant)' }}>
-                        <img 
-                          src={`data:${fileDetails.mimeType};base64,${binaryBase64}`} 
-                          style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }} 
-                          alt="preview"
-                        />
+                {/* Preview Panel */}
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, width: '100%' }}>
+                  {binaryLoading ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, py: 6, width: '100%' }}>
+                      <CircularProgress size={32} sx={{ color: 'var(--color-primary)' }} />
+                      <Typography variant="caption" color="text.secondary">Loading preview...</Typography>
+                    </Box>
+                  ) : (
+                    binaryBase64 && (
+                      <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, mt: 1 }}>
+                        {fileDetails?.mimeType.startsWith('image/') ? (
+                          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderRadius: '12px', border: '1px solid var(--color-surface-variant)', p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)', minHeight: '300px' }}>
+                            <img 
+                              src={`data:${fileDetails.mimeType};base64,${binaryBase64}`} 
+                              style={{ maxWidth: '100%', maxHeight: '450px', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--elevation-1)' }} 
+                              alt="preview"
+                            />
+                          </Box>
+                        ) : fileDetails?.mimeType === 'application/pdf' ? (
+                          <PdfViewer base64Data={binaryBase64} />
+                        ) : isTextFile(binaryBase64) ? (
+                          <FlatTextViewer base64Data={binaryBase64} />
+                        ) : (
+                          // Fallback for generic binary files
+                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 6, width: '100%' }}>
+                            <AttachFileIcon sx={{ fontSize: '64px', color: 'var(--color-outline)' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              No preview available for this file type.
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
-                    )}
-                    {fileDetails?.mimeType === 'application/pdf' && binaryBase64 && (
-                      <iframe 
-                        src={`data:${fileDetails.mimeType};base64,${binaryBase64}`} 
-                        width="100%" 
-                        height="400px" 
-                        style={{ border: 'none', borderRadius: '8px' }} 
-                        title="PDF preview"
-                      />
-                    )}
-                  </>
-                )}
-
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  onClick={() => {
-                    if (selectedSecretPath && fileDetails) {
-                      window.gopass.exportBinarySecret(selectedSecretPath, fileDetails.filename);
-                    }
-                  }}
-                  sx={{ mt: 1 }}
-                >
-                  Download File
-                </Button>
+                    )
+                  )}
+                </Box>
               </Box>
             ) : (
               <>
@@ -1951,5 +1975,194 @@ function SettingsDialog({ open, onClose, config, onSave }: SettingsDialogProps) 
         <Button variant="contained" onClick={() => onSave(localConfig)}>Save</Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+// Check if a base64 string decodes to a valid printable text/log file content
+function isTextFile(b64: string): boolean {
+  try {
+    const decoded = atob(b64);
+    let nonPrintableCount = 0;
+    for (let i = 0; i < Math.min(decoded.length, 1000); i++) {
+      const code = decoded.charCodeAt(i);
+      if (code === 0) return false; // Contains null bytes (binary)
+      if (code < 32 && code !== 9 && code !== 10 && code !== 13) {
+        nonPrintableCount++;
+      }
+    }
+    return (nonPrintableCount / Math.min(decoded.length, 1000)) <= 0.3;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Component to render plain text / log files
+function FlatTextViewer({ base64Data }: { base64Data: string }) {
+  const textContent = useMemo(() => {
+    try {
+      return atob(base64Data);
+    } catch (e) {
+      return null;
+    }
+  }, [base64Data]);
+
+  if (textContent === null) {
+    return (
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          Failed to display file content.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', minHeight: '350px' }}>
+      <Box sx={{ p: 1, backgroundColor: 'rgba(103, 80, 164, 0.05)', borderBottom: '1px solid var(--color-surface-variant)' }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-outline)' }}>
+          File Contents (Plain Text)
+        </Typography>
+      </Box>
+      <Box 
+        component="pre" 
+        sx={{ 
+          flex: 1, 
+          m: 0, 
+          p: 2, 
+          overflow: 'auto', 
+          fontFamily: 'var(--font-mono)', 
+          fontSize: '13px', 
+          lineHeight: '1.5', 
+          backgroundColor: 'rgba(103, 80, 164, 0.01)', 
+          userSelect: 'text', 
+          whiteSpace: 'pre-wrap', 
+          wordBreak: 'break-all' 
+        }}
+      >
+        {textContent}
+      </Box>
+    </Box>
+  );
+}
+
+// Custom page-flipping and scrolling PDF Viewer
+interface PdfViewerProps {
+  base64Data: string;
+}
+
+function PdfViewer({ base64Data }: PdfViewerProps) {
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [scale, setScale] = useState(1.0);
+  const [viewMode, setViewMode] = useState<'single' | 'scroll'>('single');
+
+  const pdfData = useMemo(() => {
+    try {
+      const binaryString = atob(base64Data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return { data: bytes };
+    } catch (e) {
+      console.error('Failed to decode PDF base64:', e);
+      return null;
+    }
+  }, [base64Data]);
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPageNumber(1);
+  };
+
+  if (!pdfData) {
+    return <Typography color="error">Failed to load PDF data</Typography>;
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--color-surface-container-lowest)', minHeight: '450px' }}>
+      {/* Toolbar */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, backgroundColor: 'rgba(103, 80, 164, 0.05)', borderBottom: '1px solid var(--color-surface-variant)', flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton 
+            size="small" 
+            disabled={pageNumber <= 1 || viewMode === 'scroll'} 
+            onClick={() => setPageNumber(p => Math.max(p - 1, 1))}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+          <Typography variant="body2">
+            {viewMode === 'scroll' 
+              ? `Total Pages: ${numPages || '...'}`
+              : `Page ${pageNumber} of ${numPages || '...'}`
+            }
+          </Typography>
+          <IconButton 
+            size="small" 
+            disabled={!numPages || pageNumber >= numPages || viewMode === 'scroll'} 
+            onClick={() => setPageNumber(p => Math.min(p + 1, numPages))}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Button 
+            size="small" 
+            variant="outlined" 
+            onClick={() => setViewMode(m => m === 'single' ? 'scroll' : 'single')}
+            sx={{ textTransform: 'none', height: '30px', fontSize: '12px' }}
+          >
+            {viewMode === 'single' ? 'Scroll View' : 'Single Page'}
+          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton size="small" onClick={() => setScale(s => Math.max(s - 0.25, 0.5))}>
+              <RemoveIcon fontSize="small" />
+            </IconButton>
+            <Typography variant="caption" sx={{ minWidth: '40px', textAlign: 'center' }}>
+              {Math.round(scale * 100)}%
+            </Typography>
+            <IconButton size="small" onClick={() => setScale(s => Math.min(s + 0.25, 2.5))}>
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Pages Container */}
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#525659', minHeight: '380px' }}>
+        <Document 
+          file={pdfData} 
+          onLoadSuccess={onDocumentLoadSuccess}
+          loading={<CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />}
+          error={<Typography color="error">Error loading PDF document.</Typography>}
+        >
+          {viewMode === 'single' ? (
+            <Box sx={{ boxShadow: 'var(--elevation-2)', backgroundColor: '#fff', borderRadius: '4px', overflow: 'hidden' }}>
+              <Page 
+                pageNumber={pageNumber} 
+                scale={scale} 
+                renderTextLayer={false} 
+                renderAnnotationLayer={false} 
+              />
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {Array.from(new Array(numPages || 0), (_, index) => (
+                <Box key={index} sx={{ boxShadow: 'var(--elevation-2)', backgroundColor: '#fff', borderRadius: '4px', overflow: 'hidden' }}>
+                  <Page 
+                    pageNumber={index + 1} 
+                    scale={scale} 
+                    renderTextLayer={false} 
+                    renderAnnotationLayer={false} 
+                  />
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Document>
+      </Box>
+    </Box>
   );
 }

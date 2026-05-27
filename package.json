@@ -76,8 +76,10 @@
     "@mui/material": "^5.15.18",
     "fuse.js": "^7.0.0",
     "marked": "^18.0.4",
+    "pdfjs-dist": "^5.7.284",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-pdf": "^10.4.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
