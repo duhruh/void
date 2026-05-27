@@ -21,3 +21,15 @@ const updateData = {
 
 fs.writeFileSync(updateJsonPath, JSON.stringify(updateData, null, 2));
 console.log(`Updated docs/update.json to version v${newVersion}`);
+
+// Also update version strings in README.md
+const readmePath = path.join(__dirname, '../README.md');
+if (fs.existsSync(readmePath)) {
+  let readme = fs.readFileSync(readmePath, 'utf8');
+  readme = readme.replace(/release-v\d+\.\d+\.\d+/g, `release-v${newVersion}`);
+  readme = readme.replace(/Void-\d+\.\d+\.\d+/g, `Void-${newVersion}`);
+  readme = readme.replace(/void-desktop_\d+\.\d+\.\d+/g, `void-desktop_${newVersion}`);
+  fs.writeFileSync(readmePath, readme, 'utf8');
+  console.log(`Updated README.md to version v${newVersion}`);
+}
+
