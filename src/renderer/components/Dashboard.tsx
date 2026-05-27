@@ -1080,7 +1080,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       </Box>
 
       {/* PANE 3: Detailed Editor (Right Pane) */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-surface)' }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-surface)', minWidth: 0 }}>
         
         {/* Editor Header */}
         <Box sx={{ padding: '16px 24px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--color-surface-variant)' }}>
@@ -1126,6 +1126,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
               gap: 3,
               border: dragOver ? '2px dashed var(--color-primary)' : 'none',
               backgroundColor: dragOver ? 'rgba(103, 80, 164, 0.04)' : 'transparent',
+              minWidth: 0,
             }}
           >
             
@@ -1141,7 +1142,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             )}
 
             {isFileSecret && !isEditing ? (
-              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: 2, backgroundColor: 'rgba(103, 80, 164, 0.02)', flex: 1, minHeight: 0 }}>
+              <Box sx={{ border: '1px solid var(--color-surface-variant)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: 2, backgroundColor: 'rgba(103, 80, 164, 0.02)', flex: 1, minHeight: 0, minWidth: 0 }}>
                 {/* File Metadata Header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', borderBottom: '1px solid var(--color-surface-variant)', pb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1171,7 +1172,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                 </Box>
                 
                 {/* Preview Panel */}
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, width: '100%' }}>
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, width: '100%' }}>
                   {binaryLoading ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, py: 6, width: '100%' }}>
                       <CircularProgress size={32} sx={{ color: 'var(--color-primary)' }} />
@@ -1179,7 +1180,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                     </Box>
                   ) : (
                     binaryBase64 && (
-                      <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, mt: 1 }}>
+                      <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, mt: 1 }}>
                         {fileDetails?.mimeType.startsWith('image/') ? (
                           <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderRadius: '12px', border: '1px solid var(--color-surface-variant)', p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)', minHeight: 0, height: '100%' }}>
                             <img 
@@ -2017,7 +2018,7 @@ function FlatTextViewer({ base64Data }: { base64Data: string }) {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', minHeight: 0, flex: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', minHeight: 0, minWidth: 0, flex: 1 }}>
       <Box sx={{ p: 1, backgroundColor: 'rgba(103, 80, 164, 0.05)', borderBottom: '1px solid var(--color-surface-variant)' }}>
         <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-outline)' }}>
           File Contents (Plain Text)
@@ -2081,7 +2082,7 @@ function PdfViewer({ base64Data }: PdfViewerProps) {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--color-surface-container-lowest)', minHeight: 0, flex: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--color-surface-container-lowest)', minHeight: 0, minWidth: 0, flex: 1 }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, backgroundColor: 'rgba(103, 80, 164, 0.05)', borderBottom: '1px solid var(--color-surface-variant)', flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

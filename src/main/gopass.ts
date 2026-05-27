@@ -18,14 +18,6 @@ export function getGopassPath(): string {
   return configuredGopassPath;
 }
 
-function quoteArgIfNeeded(arg: string): string {
-  if (arg.startsWith('-')) return arg;
-  if (arg === '' || /[\s"'&|<>\(\)\^%!#\*]/.test(arg)) {
-    return `"${arg.replace(/"/g, '\\"')}"`;
-  }
-  return arg;
-}
-
 /**
  * Execute gopass process and return output
  */
@@ -34,8 +26,7 @@ export function executeGopass(args: string[], stdinData?: string): Promise<strin
     const processPath = getGopassPath();
     // Force non-interactive by setting env variables
     const env = { ...process.env, GOPASS_NO_COLOR: 'true', GOPASS_NON_INTERACTIVE: 'true' };
-    const quotedArgs = args.map(quoteArgIfNeeded);
-    const child = spawn(processPath, quotedArgs, { env, shell: true });
+    const child = spawn(processPath, args, { env });
 
     let stdout = '';
     let stderr = '';
@@ -218,8 +209,7 @@ export function executeGopassBinary(args: string[], stdinData?: string | Buffer)
   return new Promise((resolve, reject) => {
     const processPath = getGopassPath();
     const env = { ...process.env, GOPASS_NO_COLOR: 'true', GOPASS_NON_INTERACTIVE: 'true' };
-    const quotedArgs = args.map(quoteArgIfNeeded);
-    const child = spawn(processPath, quotedArgs, { env, shell: true });
+    const child = spawn(processPath, args, { env });
 
     let chunks: Buffer[] = [];
     let stderr = '';
