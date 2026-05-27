@@ -181,6 +181,14 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   // Developer Mode click logic
   const [logoClicks, setLogoClicks] = useState(0);
   const [lastLogoClickTime, setLastLogoClickTime] = useState(0);
+  const [toast, setToast] = useState<{ open: boolean; message: string } | null>(null);
+
+  const showToast = (message: string) => {
+    setToast({ open: true, message });
+    setTimeout(() => {
+      setToast(prev => prev && prev.message === message ? null : prev);
+    }, 3000);
+  };
 
   const handleLogoClick = async () => {
     const now = Date.now();
@@ -206,8 +214,8 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       await window.config.saveConfig(updatedConfig);
       setConfig(updatedConfig);
       
-      alert(isEnabled 
-        ? "Developer Mode Enabled! A developer section has been added to Settings." 
+      showToast(isEnabled 
+        ? "Developer Mode Enabled! Developer options unlocked." 
         : "Developer Mode Disabled."
       );
     }
@@ -642,6 +650,12 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       await window.config.saveConfig(newConfig);
       setConfig(newConfig);
       setSettingsOpen(false);
+
+      if (newConfig.developer?.simulate_updates) {
+        handleCheckForUpdates(false);
+      } else {
+        setUpdateInfo({ updateAvailable: false });
+      }
     }
   };
 
@@ -769,7 +783,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             src={appIcon} 
             alt="Logo" 
             onClick={handleLogoClick}
-            style={{ width: 18, height: 18, cursor: 'pointer', userSelect: 'none' }} 
+            style={{ width: 18, height: 18, cursor: 'default', userSelect: 'none' }} 
           />
           <Typography className="window-titlebar-title" sx={{ mr: 2, userSelect: 'none' }}>Void</Typography>
           
@@ -1782,6 +1796,12 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             };
             await window.config.saveConfig(updatedConfig);
             setConfig(updatedConfig);
+
+            if (isSimulateEnabled) {
+              handleCheckForUpdates(false);
+            } else {
+              setUpdateInfo({ updateAvailable: false });
+            }
           }}
           sx={{ fontSize: '13px', py: 1, px: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}
         >
@@ -1808,7 +1828,8 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             };
             await window.config.saveConfig(updatedConfig);
             setConfig(updatedConfig);
-            alert("Developer Mode Disabled.");
+            setUpdateInfo({ updateAvailable: false });
+            showToast("Developer Mode Disabled.");
           }}
           sx={{ fontSize: '13px', py: 1, px: 2, color: '#ba1a1a' }}
         >
@@ -2046,10 +2067,46 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         </DialogActions>
       </Dialog>
 
+      {/* Custom Sleek Toast Notification */}
+      {toast?.open && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'var(--color-success-container)',
+            color: 'var(--color-on-success-container)',
+            border: '1px solid var(--color-success)',
+            borderRadius: '12px',
+            padding: '12px 24px',
+            boxShadow: 'var(--elevation-3)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            animation: 'slideUp 0.3s cubic-bezier(0.2, 0, 0, 1)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'var(--font-heading)' }}>
+            {toast.message}
+          </Typography>
+        </Box>
+      )}
+
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes slideUp {
+          from { transform: translate(-50%, 24px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
         }
       `}</style>
       </Box>
