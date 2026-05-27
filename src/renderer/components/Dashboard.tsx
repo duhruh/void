@@ -1119,7 +1119,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             onDrop={handleDrop}
             sx={{
               flex: 1,
-              overflowY: 'auto',
+              overflowY: (isFileSecret && !isEditing) ? 'hidden' : 'auto',
               padding: '24px',
               display: 'flex',
               flexDirection: 'column',
@@ -1181,10 +1181,10 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                     binaryBase64 && (
                       <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, mt: 1 }}>
                         {fileDetails?.mimeType.startsWith('image/') ? (
-                          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderRadius: '12px', border: '1px solid var(--color-surface-variant)', p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)', minHeight: '300px' }}>
+                          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderRadius: '12px', border: '1px solid var(--color-surface-variant)', p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)', minHeight: 0, height: '100%' }}>
                             <img 
                               src={`data:${fileDetails.mimeType};base64,${binaryBase64}`} 
-                              style={{ maxWidth: '100%', maxHeight: '450px', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--elevation-1)' }} 
+                              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px', boxShadow: 'var(--elevation-1)' }} 
                               alt="preview"
                             />
                           </Box>
@@ -2017,7 +2017,7 @@ function FlatTextViewer({ base64Data }: { base64Data: string }) {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', minHeight: '350px' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', minHeight: 0, flex: 1 }}>
       <Box sx={{ p: 1, backgroundColor: 'rgba(103, 80, 164, 0.05)', borderBottom: '1px solid var(--color-surface-variant)' }}>
         <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-outline)' }}>
           File Contents (Plain Text)
@@ -2081,7 +2081,7 @@ function PdfViewer({ base64Data }: PdfViewerProps) {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--color-surface-container-lowest)', minHeight: '450px' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', border: '1px solid var(--color-surface-variant)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--color-surface-container-lowest)', minHeight: 0, flex: 1 }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, backgroundColor: 'rgba(103, 80, 164, 0.05)', borderBottom: '1px solid var(--color-surface-variant)', flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -2131,7 +2131,7 @@ function PdfViewer({ base64Data }: PdfViewerProps) {
       </Box>
 
       {/* Pages Container */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#525659', minHeight: '380px' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#525659', minHeight: 0 }}>
         <Document 
           file={pdfData} 
           onLoadSuccess={onDocumentLoadSuccess}

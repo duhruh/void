@@ -18,6 +18,14 @@ export function getGopassPath(): string {
   return configuredGopassPath;
 }
 
+function quoteArgIfNeeded(arg: string): string {
+  if (arg.startsWith('-')) return arg;
+  if (arg === '' || /[\s"'&|<>\(\)\^%!#\*]/.test(arg)) {
+    return `"${arg.replace(/"/g, '\\"')}"`;
+  }
+  return arg;
+}
+
 /**
  * Execute gopass process and return output
  */
@@ -26,7 +34,8 @@ export function executeGopass(args: string[], stdinData?: string): Promise<strin
     const processPath = getGopassPath();
     // Force non-interactive by setting env variables
     const env = { ...process.env, GOPASS_NO_COLOR: 'true', GOPASS_NON_INTERACTIVE: 'true' };
-    const child = spawn(processPath, args, { env, shell: true });
+    const quotedArgs = args.map(quoteArgIfNeeded);
+    const child = spawn(processPath, quotedArgs, { env, shell: true });
 
     let stdout = '';
     let stderr = '';
@@ -112,9 +121,40 @@ export function parseSecret(rawOutput: string): SecretData {
  * Retrieves a single secret
  */
 export async function showSecret(secretPath: string): Promise<SecretData> {
-  // Use --unsafe/--force to get actual password content without prompting
-  const output = await executeGopass(['show', '--unsafe', '--noparsing', secretPath]);
-  return parseSecret(output);
+  try {
+    // Use --unsafe/--force to get actual password content without prompting
+    const output = await executeGopass(['show', '--unsafe', '--noparsing', secretPath]);
+    return parseSecret(output);
+  } catch (err: any) {
+    const errMsg = err.message || '';
+    const isBinaryError = errMsg.toLowerCase().includes('binary') || 
+                          errMsg.toLowerCase().includes('fscopy') || 
+                          errMsg.toLowerCase().includes('cat');
+    
+    const ext = path.extname(secretPath).toLowerCase();
+    const isBinaryExt = ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.zip', '.tar', '.gz', '.dmg', '.exe', '.bin', '.tar.gz'].includes(ext);
+    
+    if (isBinaryError || isBinaryExt) {
+      const filename = path.basename(secretPath);
+      let mimeType = 'application/octet-stream';
+      if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+      else if (ext === '.gif') mimeType = 'image/gif';
+      else if (ext === '.pdf') mimeType = 'application/pdf';
+      else if (ext === '.txt' || ext === '.log') mimeType = 'text/plain';
+
+      return {
+        password: '[Void Secure File]',
+        metadata: {
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'mimeType': mimeType,
+          'filename': filename,
+        },
+        rawBody: '',
+      };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -178,7 +218,8 @@ export function executeGopassBinary(args: string[], stdinData?: string | Buffer)
   return new Promise((resolve, reject) => {
     const processPath = getGopassPath();
     const env = { ...process.env, GOPASS_NO_COLOR: 'true', GOPASS_NON_INTERACTIVE: 'true' };
-    const child = spawn(processPath, args, { env, shell: true });
+    const quotedArgs = args.map(quoteArgIfNeeded);
+    const child = spawn(processPath, quotedArgs, { env, shell: true });
 
     let chunks: Buffer[] = [];
     let stderr = '';
