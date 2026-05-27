@@ -1347,55 +1347,57 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             )}
 
             {/* Notes Block */}
-            {isEditing ? (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
-                  Notes
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5, mb: 1, border: '1px solid var(--color-surface-variant)', borderRadius: '8px 8px 0 0', p: 0.5, backgroundColor: 'rgba(103, 80, 164, 0.04)', flexWrap: 'wrap' }}>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontWeight: 'bold' }} onClick={() => handleInsertMarkdown('bold')}>Bold</Button>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontStyle: 'italic' }} onClick={() => handleInsertMarkdown('italic')}>Italic</Button>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('h1')}>H1</Button>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('h2')}>H2</Button>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('link')}>Link</Button>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('code')}>Code</Button>
-                  <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('list')}>List</Button>
-                </Box>
-                <TextField
-                  fullWidth
-                  multiline
-                  inputRef={notesRef}
-                  rows={8}
-                  placeholder="Write arbitrary Secure Notes / GPG formatted bodies here..."
-                  value={activeSecret.rawBody}
-                  onChange={(e) => setActiveSecret(prev => ({ ...prev, rawBody: e.target.value }))}
-                  InputProps={{
-                    sx: { borderRadius: '0 0 8px 8px' }
-                  }}
-                />
-              </Box>
-            ) : (
-              activeSecret.rawBody && (
+            {!isFileSecret && (
+              isEditing ? (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
-                    Notes (Markdown Rendered)
+                    Notes
                   </Typography>
-                  <Box
-                    className="markdown-body"
-                    sx={{
-                      border: '1px solid var(--color-surface-variant)',
-                      borderRadius: '12px',
-                      padding: '16px',
-                      backgroundColor: 'rgba(103, 80, 164, 0.02)',
-                      minHeight: '100px',
-                      fontSize: '14px',
-                      lineHeight: '1.6'
-                    }}
-                    dangerouslySetInnerHTML={{
-                      __html: marked.parse(activeSecret.rawBody || '') as string
+                  <Box sx={{ display: 'flex', gap: 0.5, mb: 1, border: '1px solid var(--color-surface-variant)', borderRadius: '8px 8px 0 0', p: 0.5, backgroundColor: 'rgba(103, 80, 164, 0.04)', flexWrap: 'wrap' }}>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontWeight: 'bold' }} onClick={() => handleInsertMarkdown('bold')}>Bold</Button>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontStyle: 'italic' }} onClick={() => handleInsertMarkdown('italic')}>Italic</Button>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('h1')}>H1</Button>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('h2')}>H2</Button>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('link')}>Link</Button>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('code')}>Code</Button>
+                    <Button size="small" variant="text" sx={{ minWidth: 'auto', px: 1, textTransform: 'none' }} onClick={() => handleInsertMarkdown('list')}>List</Button>
+                  </Box>
+                  <TextField
+                    fullWidth
+                    multiline
+                    inputRef={notesRef}
+                    rows={8}
+                    placeholder="Write arbitrary Secure Notes / GPG formatted bodies here..."
+                    value={activeSecret.rawBody}
+                    onChange={(e) => setActiveSecret(prev => ({ ...prev, rawBody: e.target.value }))}
+                    InputProps={{
+                      sx: { borderRadius: '0 0 8px 8px' }
                     }}
                   />
                 </Box>
+              ) : (
+                activeSecret.rawBody && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 1, color: 'var(--color-outline)' }}>
+                      Notes (Markdown Rendered)
+                    </Typography>
+                    <Box
+                      className="markdown-body"
+                      sx={{
+                        border: '1px solid var(--color-surface-variant)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        backgroundColor: 'rgba(103, 80, 164, 0.02)',
+                        minHeight: '100px',
+                        fontSize: '14px',
+                        lineHeight: '1.6'
+                      }}
+                      dangerouslySetInnerHTML={{
+                        __html: marked.parse(activeSecret.rawBody || '') as string
+                      }}
+                    />
+                  </Box>
+                )
               )
             )}
           </Box>
