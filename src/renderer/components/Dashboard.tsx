@@ -118,6 +118,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const [fileMenuAnchor, setFileMenuAnchor] = useState<null | HTMLElement>(null);
   const [editMenuAnchor, setEditMenuAnchor] = useState<null | HTMLElement>(null);
   const [helpMenuAnchor, setHelpMenuAnchor] = useState<null | HTMLElement>(null);
+  const [devMenuAnchor, setDevMenuAnchor] = useState<null | HTMLElement>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
 
   // Update State
@@ -174,6 +175,41 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       alert(`Update installation failed: ${err.message || String(err)}`);
       setIsUpdating(false);
       setDownloadProgress(null);
+    }
+  };
+
+  // Developer Mode click logic
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [lastLogoClickTime, setLastLogoClickTime] = useState(0);
+
+  const handleLogoClick = async () => {
+    const now = Date.now();
+    let clicks = 1;
+    if (now - lastLogoClickTime < 1000) {
+      clicks = logoClicks + 1;
+    }
+    setLogoClicks(clicks);
+    setLastLogoClickTime(now);
+
+    if (clicks >= 10) {
+      setLogoClicks(0);
+      const isEnabled = !config.developer?.enabled;
+      const updatedConfig = {
+        ...config,
+        developer: {
+          ...config.developer,
+          enabled: isEnabled,
+          simulate_updates: isEnabled ? config.developer?.simulate_updates : false
+        }
+      };
+      
+      await window.config.saveConfig(updatedConfig);
+      setConfig(updatedConfig);
+      
+      alert(isEnabled 
+        ? "Developer Mode Enabled! A developer section has been added to Settings." 
+        : "Developer Mode Disabled."
+      );
     }
   };
 
@@ -728,9 +764,14 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           WebkitAppRegion: (fileMenuAnchor || editMenuAnchor || helpMenuAnchor) ? 'no-drag' : 'drag'
         }}
       >
-        <Box className="window-titlebar-left">
-          <img src={appIcon} alt="Logo" style={{ width: 18, height: 18 }} />
-          <Typography className="window-titlebar-title" sx={{ mr: 2 }}>Void</Typography>
+        <Box className="window-titlebar-left" sx={{ WebkitAppRegion: 'no-drag' }}>
+          <img 
+            src={appIcon} 
+            alt="Logo" 
+            onClick={handleLogoClick}
+            style={{ width: 18, height: 18, cursor: 'pointer', userSelect: 'none' }} 
+          />
+          <Typography className="window-titlebar-title" sx={{ mr: 2, userSelect: 'none' }}>Void</Typography>
           
           {/* Custom Menu Bar Options */}
           <Box className="window-titlebar-menu" sx={{ display: 'flex', gap: 0.5, WebkitAppRegion: 'no-drag' }}>
@@ -800,6 +841,30 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
             >
               Help
             </Button>
+            {config.developer?.enabled && (
+              <Button
+                size="small"
+                onClick={(e) => setDevMenuAnchor(e.currentTarget)}
+                sx={{
+                  px: 1.5,
+                  py: 0.25,
+                  minWidth: 'auto',
+                  fontSize: '12px',
+                  color: 'var(--color-primary)',
+                  borderRadius: '6px',
+                  height: '26px',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  backgroundColor: 'transparent',
+                  '&:hover': {
+                    backgroundColor: 'rgba(103, 80, 164, 0.08)',
+                    color: 'var(--color-primary)',
+                  }
+                }}
+              >
+                Developer
+              </Button>
+            )}
           </Box>
         </Box>
         
@@ -1689,6 +1754,68 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         </MenuItem>
       </Menu>
 
+      {/* Developer Menu */}
+      <Menu
+        anchorEl={devMenuAnchor}
+        open={Boolean(devMenuAnchor)}
+        onClose={() => setDevMenuAnchor(null)}
+        sx={{
+          '& .MuiPaper-root': {
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: 'var(--elevation-2)',
+            borderRadius: '8px',
+            mt: 0.5,
+          }
+        }}
+      >
+        <MenuItem
+          onClick={async () => {
+            setDevMenuAnchor(null);
+            const isSimulateEnabled = !config.developer?.simulate_updates;
+            const updatedConfig = {
+              ...config,
+              developer: {
+                ...config.developer,
+                simulate_updates: isSimulateEnabled
+              }
+            };
+            await window.config.saveConfig(updatedConfig);
+            setConfig(updatedConfig);
+          }}
+          sx={{ fontSize: '13px', py: 1, px: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}
+        >
+          <Box sx={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {config.developer?.simulate_updates && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </Box>
+          Simulate application updates
+        </MenuItem>
+        
+        <MenuItem
+          onClick={async () => {
+            setDevMenuAnchor(null);
+            const updatedConfig = {
+              ...config,
+              developer: {
+                ...config.developer,
+                enabled: false,
+                simulate_updates: false
+              }
+            };
+            await window.config.saveConfig(updatedConfig);
+            setConfig(updatedConfig);
+            alert("Developer Mode Disabled.");
+          }}
+          sx={{ fontSize: '13px', py: 1, px: 2, color: '#ba1a1a' }}
+        >
+          Disable Developer Mode
+        </MenuItem>
+      </Menu>
+
       {/* MANAGE MOUNTS DIALOG */}
       <Dialog open={manageMountsOpen} onClose={() => setManageMountsOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>Manage Mounts / Stores</DialogTitle>
@@ -2225,6 +2352,33 @@ function SettingsDialog({ open, onClose, config, onSave, appVersion, onCheckForU
             </Button>
           </Box>
         </Box>
+
+        {/* Developer Settings (Hidden unless Developer Mode is unlocked) */}
+        {localConfig.developer?.enabled && (
+          <Box sx={{ borderTop: '1px solid var(--glass-border)', pt: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: 'var(--color-primary)' }}>
+              Developer Settings
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={localConfig.developer?.simulate_updates || false}
+                  onChange={(e) =>
+                    setLocalConfig((prev) => ({
+                      ...prev,
+                      developer: {
+                        ...prev.developer,
+                        simulate_updates: e.target.checked
+                      }
+                    }))
+                  }
+                />
+              }
+              label={<Typography variant="body2">Simulate application updates (VOID_DEBUG_UPDATE)</Typography>}
+            />
+          </Box>
+        )}
 
       </DialogContent>
       <DialogActions sx={{ padding: '16px 24px' }}>

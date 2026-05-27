@@ -468,7 +468,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('gopass:update:check', async () => {
-    if (process.env.VOID_DEBUG_UPDATE === 'true') {
+    if (process.env.VOID_DEBUG_UPDATE === 'true' || currentConfig.developer?.simulate_updates) {
       return {
         updateAvailable: true,
         version: '9.9.9-debug',
@@ -521,7 +521,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('gopass:update:install', async (_, url: string) => {
-    if (process.env.VOID_DEBUG_UPDATE === 'true') {
+    if (process.env.VOID_DEBUG_UPDATE === 'true' || currentConfig.developer?.simulate_updates) {
       return new Promise<void>((resolve) => {
         let progress = 0;
         const timer = setInterval(() => {

@@ -38,6 +38,10 @@ export interface AppConfig {
       };
     };
   };
+  developer?: {
+    enabled?: boolean;
+    simulate_updates?: boolean;
+  };
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -94,6 +98,10 @@ const DEFAULT_CONFIG: AppConfig = {
       },
     },
   },
+  developer: {
+    enabled: false,
+    simulate_updates: false,
+  },
 };
 
 export function getConfigPath(): string {
@@ -135,6 +143,7 @@ export function loadConfig(configFilePath?: string): AppConfig {
             dark: { ...DEFAULT_CONFIG.theme.custom_profile_seed.dark, ...(loaded.theme?.custom_profile_seed?.dark || {}) },
           },
         },
+        developer: { ...DEFAULT_CONFIG.developer, ...(loaded.developer || {}) },
       };
     }
   } catch (err) {
