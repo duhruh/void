@@ -1,0 +1,8 @@
+{
+  "version": "1.0.3",
+  "platforms": {
+    "win32-x64": "https://github.com/duhruh/void/releases/download/v1.0.3/Void-1.0.3.exe",
+    "darwin-x64": "https://github.com/duhruh/void/releases/download/v1.0.3/Void-1.0.3.dmg",
+    "linux-x64": "https://github.com/duhruh/void/releases/download/v1.0.3/Void-1.0.3.AppImage"
+  }
+}
