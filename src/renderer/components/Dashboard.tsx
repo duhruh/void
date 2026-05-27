@@ -54,10 +54,20 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRightOutlined';
 import RemoveIcon from '@mui/icons-material/RemoveOutlined';
 
 // Configure react-pdf worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import pdfWorkerRaw from 'pdfjs-dist/build/pdf.worker.min.mjs?raw';
+
+if (typeof window !== 'undefined') {
+  try {
+    const blob = new Blob([pdfWorkerRaw], { type: 'application/javascript' });
+    pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+  } catch (e) {
+    console.error('Failed to create worker blob URL, falling back to URL:', e);
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  }
+}
 
 interface DashboardProps {
   config: AppConfig;
@@ -2058,6 +2068,7 @@ function PdfViewer({ base64Data }: PdfViewerProps) {
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [viewMode, setViewMode] = useState<'single' | 'scroll'>('single');
+  const [error, setError] = useState<Error | null>(null);
 
   const pdfData = useMemo(() => {
     try {
@@ -2138,8 +2149,18 @@ function PdfViewer({ base64Data }: PdfViewerProps) {
         <Document 
           file={pdfData} 
           onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={(err) => setError(err)}
           loading={<CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />}
-          error={<Typography color="error">Error loading PDF document.</Typography>}
+          error={
+            <Box sx={{ p: 2, textAlign: 'center', color: '#ff8a80' }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>Error loading PDF document.</Typography>
+              {error && (
+                <Typography variant="caption" sx={{ display: 'block', mt: 1, fontFamily: 'monospace', opacity: 0.85, wordBreak: 'break-all' }}>
+                  {error.message || String(error)}
+                </Typography>
+              )}
+            </Box>
+          }
         >
           {viewMode === 'single' ? (
             <Box sx={{ boxShadow: 'var(--elevation-2)', backgroundColor: '#fff', borderRadius: '4px', overflow: 'hidden' }}>
