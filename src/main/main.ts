@@ -468,6 +468,13 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('gopass:update:check', async () => {
+    if (process.env.VOID_DEBUG_UPDATE === 'true') {
+      return {
+        updateAvailable: true,
+        version: '9.9.9-debug',
+        url: 'mock://updater-simulation-url'
+      };
+    }
     try {
       const response = await net.fetch('https://duhruh.me/void/update.json');
       if (!response.ok) {
@@ -514,6 +521,26 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('gopass:update:install', async (_, url: string) => {
+    if (process.env.VOID_DEBUG_UPDATE === 'true') {
+      return new Promise<void>((resolve) => {
+        let progress = 0;
+        const timer = setInterval(() => {
+          progress += 5;
+          if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+            dashboardWindow.webContents.send('gopass:update:progress', { progress });
+          }
+          if (progress >= 100) {
+            clearInterval(timer);
+            setTimeout(() => {
+              console.log('Update simulation finished successfully. Relaunching...');
+              resolve();
+              app.relaunch();
+              app.exit(0);
+            }, 1500);
+          }
+        }, 150);
+      });
+    }
     return new Promise<void>((resolve, reject) => {
       const tempDir = app.getPath('temp');
       const ext = path.extname(url) || (process.platform === 'win32' ? '.exe' : '');
