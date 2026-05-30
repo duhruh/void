@@ -45,6 +45,7 @@ import GenerateIcon from '@mui/icons-material/AutorenewOutlined';
 
 import { AppConfig } from '../../main/config';
 import { SecretData } from '../../main/gopass';
+import VoidDrop from './VoidDrop';
 import lightIcon from '../../assets/light.svg';
 import darkIcon from '../../assets/dark.svg';
 import { marked } from 'marked';
@@ -113,6 +114,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const [syncStatus, setSyncStatus] = useState<'clean' | 'syncing' | 'error'>('clean');
   const [syncError, setSyncError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'vault' | 'drop'>('vault');
 
   // Custom Menu Bar States
   const [fileMenuAnchor, setFileMenuAnchor] = useState<null | HTMLElement>(null);
@@ -1022,8 +1024,61 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
 
       {/* Rest of the Dashboard layout */}
       <Box className="window-content" sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-      
-      {/* PANE 1: Navigation Tree (Left Pane) */}
+        
+        {/* Navigation Rail (M3 Sidebar) */}
+        <Box
+          sx={{
+            width: '56px',
+            borderRight: '1px solid var(--color-surface-variant)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            py: 2,
+            gap: 2,
+            backgroundColor: 'rgba(254, 247, 255, 0.15)',
+            flexShrink: 0,
+          }}
+        >
+          <Tooltip title="Secrets Vault" placement="right">
+            <IconButton
+              onClick={() => setActiveTab('vault')}
+              sx={{
+                borderRadius: '12px',
+                width: '40px',
+                height: '40px',
+                backgroundColor: activeTab === 'vault' ? 'var(--color-primary-container)' : 'transparent',
+                color: activeTab === 'vault' ? 'var(--color-on-primary-container)' : 'var(--color-on-surface-variant)',
+                '&:hover': {
+                  backgroundColor: activeTab === 'vault' ? 'var(--color-primary-container)' : 'rgba(103, 80, 164, 0.08)',
+                },
+              }}
+            >
+              <KeyIcon sx={{ fontSize: '20px' }} />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Void Drop" placement="right">
+            <IconButton
+              onClick={() => setActiveTab('drop')}
+              sx={{
+                borderRadius: '12px',
+                width: '40px',
+                height: '40px',
+                backgroundColor: activeTab === 'drop' ? 'var(--color-primary-container)' : 'transparent',
+                color: activeTab === 'drop' ? 'var(--color-on-primary-container)' : 'var(--color-on-surface-variant)',
+                '&:hover': {
+                  backgroundColor: activeTab === 'drop' ? 'var(--color-primary-container)' : 'rgba(103, 80, 164, 0.08)',
+                },
+              }}
+            >
+              <AttachFileIcon sx={{ fontSize: '20px' }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {activeTab === 'vault' ? (
+          <>
+            {/* PANE 1: Navigation Tree (Left Pane) */}
       <Box
         sx={{
           width: '260px',
@@ -1671,6 +1726,10 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           </Button>
         </Box>
       </Box>
+    </>
+  ) : (
+    <VoidDrop config={config} />
+  )}
 
       {/* SETTINGS DIALOG */}
       <SettingsDialog
@@ -2668,6 +2727,29 @@ function SettingsDialog({ open, onClose, config, onSave, appVersion, onCheckForU
                   />
                 }
                 label={<Typography variant="body2">Allow screenshots and screen capturing</Typography>}
+              />
+              <TextField
+                label="Signaling Database URL"
+                variant="outlined"
+                fullWidth
+                size="small"
+                value={localConfig.developer?.signaling_database_url || ''}
+                onChange={(e) =>
+                  setLocalConfig((prev) => ({
+                    ...prev,
+                    developer: {
+                      ...prev.developer,
+                      signaling_database_url: e.target.value
+                    }
+                  }))
+                }
+                sx={{
+                  mt: 1.5,
+                  '& .MuiInputBase-input': {
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '13px',
+                  }
+                }}
               />
             </Box>
           </Box>

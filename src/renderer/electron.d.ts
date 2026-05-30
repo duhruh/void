@@ -45,6 +45,12 @@ declare global {
     clipboard: {
       writeText(text: string, isPassword?: boolean): Promise<void>;
     };
+    gpg: {
+      listKeys(): Promise<Array<{ keyId: string; uid: string }>>;
+      sign(payload: string): Promise<string>;
+      signDetached(payloadBase64: string): Promise<string>;
+      encrypt(payloadBase64: string, recipientKeyId: string): Promise<string>;
+    };
   }
 }
 export {};

@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Void Drop — Secure Ephemeral Transfer</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --color-primary: #a085e4;
+      --color-primary-container: #2b1d54;
+      --color-on-primary-container: #eaddff;
+      --color-surface: #0a080d;
+      --color-surface-variant: #1c1824;
+      --color-on-surface: #e6e1e5;
+      --color-on-surface-variant: #cac4d0;
+      --color-outline: #938f99;
+      --glass-bg: rgba(28, 24, 36, 0.4);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      
+      --font-heading: 'Space Grotesk', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--color-surface);
+      color: var(--color-on-surface);
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 24px;
+      position: relative;
+    }
+
+    /* Subtle background glow */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(143, 111, 216, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-glow {
+      width: 48px;
+      height: 48px;
+      background-color: var(--color-primary-container);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(160, 133, 228, 0.2);
+      box-shadow: 0 0 20px rgba(160, 133, 228, 0.15);
+      margin-bottom: 8px;
+    }
+
+    .logo-glow svg {
+      width: 24px;
+      height: 24px;
+      fill: var(--color-primary);
+    }
+
+    h1 {
+      font-family: var(--font-heading);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    h1 span {
+      color: var(--color-primary);
+    }
+
+    .tagline {
+      font-size: 14px;
+      color: var(--color-outline);
+    }
+
+    /* Main glass card */
+    .card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 32px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      min-height: 220px;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    /* Processing event horizon loading ring */
+    .loading-ring {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-ring::before {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: #00f0ff;
+      border-bottom-color: var(--color-primary);
+      animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .status-text {
+      text-align: center;
+      font-size: 15px;
+      color: var(--color-on-surface);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    .status-sub {
+      text-align: center;
+      font-size: 13px;
+      color: var(--color-outline);
+      margin-top: -12px;
+    }
+
+    .error-text {
+      color: #ffb4ab;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    /* Monospace Content Rendering */
+    .text-payload-container {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .text-box {
+      width: 100%;
+      background-color: var(--color-surface-variant);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #eaddff;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 350px;
+      overflow-y: auto;
+      user-select: text;
+    }
+
+    /* Primary buttons */
+    .btn-primary {
+      font-family: var(--font-heading);
+      background-color: var(--color-primary);
+      color: #121016;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 100px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 10px rgba(160, 133, 228, 0.2);
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      background-color: #bfa8ff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(160, 133, 228, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* File Ingestion Display */
+    .file-details {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+    }
+
+    .file-icon {
+      width: 64px;
+      height: 64px;
+      color: var(--color-primary);
+      margin-bottom: 8px;
+    }
+
+    .file-name {
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .file-size {
+      font-size: 13px;
+      color: var(--color-outline);
+    }
+
+    /* GPG Signature and Double Encrypted Layouts */
+    .gpg-badge {
+      font-family: var(--font-heading);
+      background-color: rgba(160, 133, 228, 0.1);
+      border: 1px solid rgba(160, 133, 228, 0.3);
+      color: var(--color-primary);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .signature-panel {
+      width: 100%;
+      background: rgba(160, 133, 228, 0.03);
+      border: 1px dashed rgba(160, 133, 228, 0.2);
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .signature-title {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .signature-block {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-outline);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 120px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px;
+      border-radius: 8px;
+    }
+
+    .gpg-info-card {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .gpg-info-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: #ffb4ab;
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--color-outline);
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="logo-glow">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+        </svg>
+      </div>
+      <h1>Void <span>Drop</span></h1>
+      <p class="tagline">Zero-Knowledge Peer-to-Peer Ephemeral Sharing</p>
+    </header>
+
+    <div class="card" id="drop-card">
+      <div class="loading-ring" id="loader"></div>
+      <p class="status-text" id="status">Connecting to Void...</p>
+      <p class="status-sub" id="status-sub">Establishing secure peer-to-peer data tunnel.</p>
+    </div>
+
+    <p class="footer-note">All decryption happens in browser memory. Payload is never sent to a server.</p>
+  </div>
+
+  <script>
+    const card = document.getElementById('drop-card');
+    const loader = document.getElementById('loader');
+    const statusText = document.getElementById('status');
+    const statusSub = document.getElementById('status-sub');
+
+    // Parse URL Connection Parameters
+    // Format: #<Database_Host>.<Session_ID>.<AES_GCM_Key>
+    const hash = window.location.hash.substring(1);
+    if (!hash) {
+      showError("Connection parameters missing. Make sure you clicked a valid Void Drop link.");
+    } else {
+      const parts = hash.split('.');
+      if (parts.length !== 3) {
+        showError("Invalid link format. Make sure the connection key is intact.");
+      } else {
+        const [dbHost, sessionId, aesKeyHex] = parts;
+        startReceiverConnection(dbHost, sessionId, aesKeyHex);
+      }
+    }
+
+    function showError(msg) {
+      if (loader) loader.style.display = 'none';
+      if (statusSub) statusSub.style.display = 'none';
+      statusText.innerHTML = `<span class="error-text">${msg}</span>`;
+    }
+
+    async function startReceiverConnection(dbHost, sessionId, aesKeyHex) {
+      let peerConnection = null;
+      let eventSource = null;
+      let receivedChunks = [];
+      let metadata = null;
+
+      try {
+        peerConnection = new RTCPeerConnection({
+          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        // EventSource for Realtime Database Relaying
+        eventSource = new EventSource(`https://${dbHost}/sessions/${sessionId}.json`);
+
+        // Gather local ICE candidates and post to Firebase
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            fetch(`https://${dbHost}/sessions/${sessionId}/candidates/receiver.json`, {
+              method: 'POST',
+              body: JSON.stringify(event.candidate)
+            }).catch(err => console.error('Failed to post candidate:', err));
+          }
+        };
+
+        // Listen to signaling channel updates
+        eventSource.addEventListener('put', async (e) => {
+          const payload = JSON.parse(e.data);
+          if (!payload) return;
+          const path = payload.path;
+          const data = payload.data;
+
+          if (path === '/offer' && data) {
+            statusText.innerText = "Negotating connection...";
+            statusSub.innerText = "SDP handshake initialized by sender.";
+            
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            // Write Answer
+            await fetch(`https://${dbHost}/sessions/${sessionId}/answer.json`, {
+              method: 'PUT',
+              body: JSON.stringify({ sdp: answer.sdp, type: answer.type })
+            });
+          } else if (path.startsWith('/candidates/sender') && data) {
+            const candidate = typeof data === 'object' && data.candidate ? data : Object.values(data)[0];
+            if (candidate) {
+              try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              } catch (err) {
+                console.error('Error adding ICE candidate:', err);
+              }
+            }
+          }
+        });
+
+        eventSource.addEventListener('patch', async (e) => {
+          const payload = JSON.parse(e.data);
+          if (!payload) return;
+          const data = payload.data;
+
+          if (data && data.offer) {
+            statusText.innerText = "Negotating connection...";
+            statusSub.innerText = "SDP handshake initialized by sender.";
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            // Write Answer
+            await fetch(`https://${dbHost}/sessions/${sessionId}/answer.json`, {
+              method: 'PUT',
+              body: JSON.stringify({ sdp: answer.sdp, type: answer.type })
+            });
+          }
+        });
+
+        // Set up incoming data channel listener
+        peerConnection.ondatachannel = (event) => {
+          const receiveChannel = event.channel;
+          receiveChannel.binaryType = 'arraybuffer';
+
+          receiveChannel.onopen = () => {
+            statusText.innerText = "Connected to Void Desktop!";
+            statusSub.innerText = "Downloading encrypted payload stream...";
+          };
+
+          receiveChannel.onmessage = async (msg) => {
+            if (typeof msg.data === 'string') {
+              try {
+                const signal = JSON.parse(msg.data);
+                if (signal.type === 'header') {
+                  metadata = signal;
+                  statusText.innerText = "Streaming payload data...";
+                  statusSub.innerText = `Receiving: ${metadata.name} (${formatSize(metadata.size)})`;
+                } else if (signal.type === 'eof') {
+                  statusText.innerText = "Decrypting payload...";
+                  statusSub.innerText = "Processing cryptographical buffer in volatile RAM...";
+                  
+                  // Complete data stream cleanup
+                  receiveChannel.close();
+                  peerConnection.close();
+                  eventSource.close();
+                  
+                  // Delete signaling session in Firebase (single response constraint)
+                  fetch(`https://${dbHost}/sessions/${sessionId}.json`, { method: 'DELETE' })
+                    .catch(err => console.error('Failed cleanup:', err));
+
+                  // Process buffer
+                  await handlePayloadReceived(receivedChunks, metadata, aesKeyHex);
+                }
+              } catch (err) {
+                console.error('Failed to parse metadata/eof packet:', err);
+              }
+            } else {
+              // Binary Chunk
+              receivedChunks.push(new Uint8Array(msg.data));
+            }
+          };
+        };
+
+      } catch (err) {
+        console.error('Failed to start WebRTC receiver:', err);
+        showError("Failed to initialize connection engine: " + err.message);
+        if (eventSource) eventSource.close();
+      }
+    }
+
+    async function handlePayloadReceived(chunks, metadata, aesKeyHex) {
+      try {
+        // Concatenate chunks
+        let totalLength = 0;
+        chunks.forEach(c => totalLength += c.byteLength);
+        const combined = new Uint8Array(totalLength);
+        let offset = 0;
+        chunks.forEach(c => {
+          combined.set(c, offset);
+          offset += c.byteLength;
+        });
+
+        let decryptedBuffer = null;
+        let plainText = "";
+
+        if (metadata.isAesEncrypted) {
+          decryptedBuffer = await decryptAesGcm(combined.buffer, aesKeyHex);
+        } else {
+          // If GPG encrypted, the payload is the raw ASCII GPG string
+          decryptedBuffer = combined.buffer;
+        }
+
+        // Display layouts depending on payload options
+        card.innerHTML = "";
+        card.style.alignItems = "stretch";
+
+        if (metadata.isGpgEncrypted) {
+          // Double encrypted payload (download GPG file)
+          const gpgStr = new TextDecoder().decode(decryptedBuffer);
+          renderGpgDownload(gpgStr, metadata);
+        } else if (metadata.isFile) {
+          // Binary File payload (download decoded file)
+          renderFileDownload(decryptedBuffer, metadata);
+        } else {
+          // Text note payload
+          plainText = new TextDecoder().decode(decryptedBuffer);
+          renderTextNote(plainText, metadata);
+        }
+
+      } catch (err) {
+        console.error('Decryption failed:', err);
+        showError("Payload Decryption Failed. Verification of AES symmetric key failed. The link may have expired or been tampered with.");
+      }
+    }
+
+    // Render Scenarios
+    function renderTextNote(text, metadata) {
+      const wrapper = document.createElement('div');
+      wrapper.className = "text-payload-container";
+      
+      const titleRow = document.createElement('div');
+      titleRow.style.display = "flex";
+      titleRow.style.justifyContent = "space-between";
+      titleRow.style.alignItems = "center";
+      
+      const title = document.createElement('span');
+      title.style.fontWeight = "600";
+      title.innerText = "Received Secure Note";
+      titleRow.appendChild(title);
+
+      if (metadata.isGpgSigned) {
+        const badge = document.createElement('span');
+        badge.className = "gpg-badge";
+        badge.innerText = "GPG Signed";
+        titleRow.appendChild(badge);
+      }
+
+      wrapper.appendChild(titleRow);
+
+      const textBox = document.createElement('pre');
+      textBox.className = "text-box";
+      textBox.innerText = text;
+      wrapper.appendChild(textBox);
+
+      const footerRow = document.createElement('div');
+      footerRow.style.display = "flex";
+      footerRow.style.gap = "12px";
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = "btn-primary";
+      copyBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        </svg> Copy to Clipboard`;
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(text);
+        copyBtn.innerText = "Copied!";
+        setTimeout(() => {
+          copyBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg> Copy to Clipboard`;
+        }, 1500);
+      };
+      footerRow.appendChild(copyBtn);
+      wrapper.appendChild(footerRow);
+
+      if (metadata.isGpgSigned && metadata.signature) {
+        const sigPanel = document.createElement('div');
+        sigPanel.className = "signature-panel";
+        sigPanel.innerHTML = `
+          <div class="signature-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg> GPG Armored Detached Signature Block
+          </div>
+          <pre class="signature-block">${metadata.signature}</pre>
+        `;
+        wrapper.appendChild(sigPanel);
+      }
+
+      card.appendChild(wrapper);
+    }
+
+    function renderFileDownload(buffer, metadata) {
+      const wrapper = document.createElement('div');
+      wrapper.className = "file-details";
+      
+      wrapper.innerHTML = `
+        <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>
+        <div class="file-name">${metadata.name}</div>
+        <div class="file-size">${formatSize(metadata.size)}</div>
+      `;
+
+      if (metadata.isGpgSigned) {
+        const badge = document.createElement('div');
+        badge.className = "gpg-badge";
+        badge.style.marginTop = "8px";
+        badge.innerText = "GPG Signed";
+        wrapper.appendChild(badge);
+      }
+
+      const actions = document.createElement('div');
+      actions.style.marginTop = "16px";
+      actions.style.display = "flex";
+      actions.style.flexDirection = "column";
+      actions.style.alignItems = "center";
+      actions.style.gap = "16px";
+      actions.style.width = "100%";
+
+      const downloadBtn = document.createElement('a');
+      downloadBtn.className = "btn-primary";
+      downloadBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+        </svg> Download File`;
+      
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
+      downloadBtn.href = URL.createObjectURL(blob);
+      downloadBtn.download = metadata.name;
+      actions.appendChild(downloadBtn);
+
+      if (metadata.isGpgSigned && metadata.signature) {
+        const sigPanel = document.createElement('div');
+        sigPanel.className = "signature-panel";
+        sigPanel.style.textAlign = "left";
+        sigPanel.innerHTML = `
+          <div class="signature-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg> GPG Armored Detached Signature Block
+          </div>
+          <pre class="signature-block">${metadata.signature}</pre>
+        `;
+        actions.appendChild(sigPanel);
+      }
+
+      wrapper.appendChild(actions);
+      card.appendChild(wrapper);
+    }
+
+    function renderGpgDownload(gpgStr, metadata) {
+      const wrapper = document.createElement('div');
+      wrapper.className = "gpg-info-card";
+
+      wrapper.innerHTML = `
+        <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ffb4ab;">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <div class="gpg-info-title">GPG Public-Key Encrypted Payload</div>
+        <p style="font-size: 13px; color: var(--color-on-surface-variant); max-width: 400px; margin-bottom: 8px;">
+          This drop is encrypted with your hardware token / public key. You must download the file and decrypt it using your local GnuPG toolset.
+        </p>
+        <div class="file-name" style="font-size: 14px;">${metadata.name}.gpg</div>
+        <div class="file-size">${formatSize(gpgStr.length)}</div>
+      `;
+
+      const downloadBtn = document.createElement('a');
+      downloadBtn.className = "btn-primary";
+      downloadBtn.style.marginTop = "16px";
+      downloadBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+        </svg> Download Encrypted .GPG`;
+      
+      const blob = new Blob([gpgStr], { type: 'text/plain' });
+      downloadBtn.href = URL.createObjectURL(blob);
+      downloadBtn.download = `${metadata.name}.gpg`;
+      wrapper.appendChild(downloadBtn);
+
+      card.appendChild(wrapper);
+    }
+
+    // Cryptography Utilities
+    async function decryptAesGcm(combinedBuffer, aesKeyHex) {
+      const rawKey = new Uint8Array(aesKeyHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        rawKey,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+
+      const iv = combinedBuffer.slice(0, 12);
+      const ciphertext = combinedBuffer.slice(12);
+
+      const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        cryptoKey,
+        ciphertext
+      );
+      return decrypted;
+    }
+
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+  </script>
+</body>
+</html>

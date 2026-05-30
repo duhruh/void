@@ -71,3 +71,10 @@ contextBridge.exposeInMainWorld('windowControl', {
 contextBridge.exposeInMainWorld('clipboard', {
   writeText: (text: string, isPassword?: boolean): Promise<void> => ipcRenderer.invoke('clipboard:write', text, isPassword),
 });
+
+contextBridge.exposeInMainWorld('gpg', {
+  listKeys: (): Promise<Array<{ keyId: string; uid: string }>> => ipcRenderer.invoke('gpg:list-keys'),
+  sign: (payload: string): Promise<string> => ipcRenderer.invoke('gpg:sign', payload),
+  signDetached: (payloadBase64: string): Promise<string> => ipcRenderer.invoke('gpg:sign-detached', payloadBase64),
+  encrypt: (payloadBase64: string, recipientKeyId: string): Promise<string> => ipcRenderer.invoke('gpg:encrypt', payloadBase64, recipientKeyId),
+});

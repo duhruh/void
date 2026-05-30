@@ -42,6 +42,7 @@ export interface AppConfig {
     enabled?: boolean;
     simulate_updates?: boolean;
     enable_screenshots?: boolean;
+    signaling_database_url?: string;
   };
 }
 
@@ -103,6 +104,7 @@ const DEFAULT_CONFIG: AppConfig = {
     enabled: false,
     simulate_updates: false,
     enable_screenshots: false,
+    signaling_database_url: 'https://void-52b64-default-rtdb.firebaseio.com/',
   },
 };
 

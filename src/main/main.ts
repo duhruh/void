@@ -645,6 +645,134 @@ fso.DeleteFile WScript.ScriptFullName
       request.end();
     });
   });
+
+  ipcMain.handle('gpg:list-keys', async () => {
+    return new Promise((resolve) => {
+      const { exec } = require('child_process');
+      exec('gpg --list-keys --with-colons', (err: any, stdout: string, stderr: string) => {
+        if (err) {
+          console.error('Failed to run gpg --list-keys:', err, stderr);
+          resolve([]);
+          return;
+        }
+
+        const keys: Array<{ keyId: string; uid: string }> = [];
+        const seenKeys = new Set<string>();
+        let currentKeyId = '';
+
+        const lines = stdout.split('\n');
+        for (const line of lines) {
+          const parts = line.split(':');
+          const type = parts[0];
+          if (type === 'pub') {
+            currentKeyId = parts[4] || '';
+          } else if (type === 'uid' && currentKeyId) {
+            const uid = parts[9] || '';
+            if (uid && !seenKeys.has(currentKeyId)) {
+              seenKeys.add(currentKeyId);
+              keys.push({ keyId: currentKeyId, uid });
+            }
+          }
+        }
+        resolve(keys);
+      });
+    });
+  });
+
+  ipcMain.handle('gpg:sign', async (_, payload: string) => {
+    return new Promise<string>((resolve, reject) => {
+      const { spawn } = require('child_process');
+      const child = spawn('gpg', ['--clearsign', '--batch', '--no-tty', '--yes']);
+      
+      let stdout = '';
+      let stderr = '';
+      
+      child.stdout.on('data', (data: any) => {
+        stdout += data.toString();
+      });
+      
+      child.stderr.on('data', (data: any) => {
+        stderr += data.toString();
+      });
+      
+      child.on('close', (code: number) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(new Error(`GPG signing failed (exit code ${code}): ${stderr}`));
+        }
+      });
+      
+      child.stdin.write(payload);
+      child.stdin.end();
+    });
+  });
+
+  ipcMain.handle('gpg:sign-detached', async (_, payloadBase64: string) => {
+    return new Promise<string>((resolve, reject) => {
+      const { spawn } = require('child_process');
+      const child = spawn('gpg', ['--detach-sign', '--armor', '--batch', '--no-tty', '--yes']);
+      
+      let stdout = '';
+      let stderr = '';
+      
+      child.stdout.on('data', (data: any) => {
+        stdout += data.toString();
+      });
+      
+      child.stderr.on('data', (data: any) => {
+        stderr += data.toString();
+      });
+      
+      child.on('close', (code: number) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(new Error(`GPG detached signing failed (exit code ${code}): ${stderr}`));
+        }
+      });
+      
+      child.stdin.write(Buffer.from(payloadBase64, 'base64'));
+      child.stdin.end();
+    });
+  });
+
+  ipcMain.handle('gpg:encrypt', async (_, payloadBase64: string, recipientKeyId: string) => {
+    return new Promise<string>((resolve, reject) => {
+      const { spawn } = require('child_process');
+      const child = spawn('gpg', [
+        '--encrypt',
+        '--armor',
+        '--recipient', recipientKeyId,
+        '--trust-model', 'always',
+        '--batch',
+        '--no-tty',
+        '--yes'
+      ]);
+      
+      let stdout = '';
+      let stderr = '';
+      
+      child.stdout.on('data', (data: any) => {
+        stdout += data.toString();
+      });
+      
+      child.stderr.on('data', (data: any) => {
+        stderr += data.toString();
+      });
+      
+      child.on('close', (code: number) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else {
+          reject(new Error(`GPG encryption failed (exit code ${code}): ${stderr}`));
+        }
+      });
+      
+      child.stdin.write(Buffer.from(payloadBase64, 'base64'));
+      child.stdin.end();
+    });
+  });
 }
 
 // App lifecycle
