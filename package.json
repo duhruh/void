@@ -16,7 +16,7 @@
     "pack:win": "electron-builder --windows",
     "pack:mac": "electron-builder --mac",
     "pack:linux": "electron-builder --linux",
-    "version": "node scripts/update-version-json.js && git add docs/update.json README.md"
+    "version": "node scripts/update-version-json.js && git add docs/update.json README.md docs/index.html"
   },
   "build": {
     "appId": "com.void.desktop",

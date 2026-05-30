@@ -53,7 +53,8 @@ function updateAppIcons() {
 }
 
 function updateContentProtection() {
-  const protect = !(currentConfig?.developer?.enabled && currentConfig?.developer?.enable_screenshots);
+  const isE2E = process.env.E2E_TEST === 'true';
+  const protect = isE2E ? false : !(currentConfig?.developer?.enabled && currentConfig?.developer?.enable_screenshots);
   if (quickAccessWindow && !quickAccessWindow.isDestroyed()) {
     quickAccessWindow.setContentProtection(protect);
   }

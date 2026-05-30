@@ -33,3 +33,14 @@ if (fs.existsSync(readmePath)) {
   console.log(`Updated README.md to version v${newVersion}`);
 }
 
+// Also update version strings in docs/index.html
+const indexHtmlPath = path.join(__dirname, '../docs/index.html');
+if (fs.existsSync(indexHtmlPath)) {
+  let html = fs.readFileSync(indexHtmlPath, 'utf8');
+  html = html.replace(/download\/v\d+\.\d+\.\d+/g, `download/v${newVersion}`);
+  html = html.replace(/Void-\d+\.\d+\.\d+/g, `Void-${newVersion}`);
+  html = html.replace(/void-desktop_\d+\.\d+\.\d+/g, `void-desktop_${newVersion}`);
+  fs.writeFileSync(indexHtmlPath, html, 'utf8');
+  console.log(`Updated docs/index.html to version v${newVersion}`);
+}
+

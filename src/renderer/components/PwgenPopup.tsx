@@ -161,6 +161,10 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
               '&:hover': {
                 backgroundColor: copied ? '#45a049' : 'rgba(103, 80, 164, 0.9)',
               },
+              flex: 1,
+              px: 1.5,
+              fontSize: '0.85rem',
+              whiteSpace: 'nowrap',
             }}
           >
             {copied ? 'Copied!' : 'Copy (⏎)'}
@@ -174,7 +178,10 @@ export default function PwgenPopup({ config }: PwgenPopupProps) {
               height: '36px',
               borderColor: 'var(--color-outline)',
               color: 'var(--color-on-surface)',
-              px: 2,
+              flex: 1,
+              px: 1.5,
+              fontSize: '0.85rem',
+              whiteSpace: 'nowrap',
             }}
           >
             Re-roll (Space)
