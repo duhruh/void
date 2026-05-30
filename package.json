@@ -8,7 +8,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:renderer": "vite build",
     "build": "npm run build:electron && npm run build:renderer",
-    "start": "electron .",
+    "start": "electron . --post-update",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
