@@ -366,10 +366,12 @@
       showError("Connection parameters missing. Make sure you clicked a valid Void Drop link.");
     } else {
       const parts = hash.split('.');
-      if (parts.length !== 3) {
+      if (parts.length < 3) {
         showError("Invalid link format. Make sure the connection key is intact.");
       } else {
-        const [dbHost, sessionId, aesKeyHex] = parts;
+        const aesKeyHex = parts.pop();
+        const sessionId = parts.pop();
+        const dbHost = parts.join('.');
         startReceiverConnection(dbHost, sessionId, aesKeyHex);
       }
     }
