@@ -594,18 +594,19 @@ function setupIpcHandlers() {
           console.log(`Download finished. Executing installer: ${installerPath}`);
           try {
             if (process.platform === 'win32') {
-              const updaterBatPath = path.join(tempDir, 'void_updater.bat');
+              const updaterVbsPath = path.join(tempDir, 'void_updater.vbs');
               const appPath = process.execPath;
-              const batchContent = `@echo off
-timeout /t 2 /nobreak > nul
-start "" /wait "${installerPath}" /S
-start "" "${appPath}"
-del "%~f0"
+              const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
+WScript.Sleep 2000
+WshShell.Run """${installerPath.replace(/"/g, '""')}"" /S", 0, True
+WshShell.Run """${appPath.replace(/"/g, '""')}"" --post-update"
+Set fso = CreateObject("Scripting.FileSystemObject")
+fso.DeleteFile WScript.ScriptFullName
 `;
-              fs.writeFileSync(updaterBatPath, batchContent, 'utf-8');
+              fs.writeFileSync(updaterVbsPath, vbsContent, 'utf-8');
               
               const { spawn } = require('child_process');
-              const child = spawn('cmd.exe', ['/c', updaterBatPath], {
+              const child = spawn('wscript.exe', [updaterVbsPath], {
                 detached: true,
                 stdio: 'ignore',
                 windowsHide: true
@@ -671,8 +672,9 @@ app.whenReady().then(async () => {
     }
   });
 
-  // If enabled in configurations, show dashboard on startup (defaults to true)
-  if (currentConfig.application.show_dashboard_on_startup) {
+  // If enabled in configurations or just updated, show dashboard on startup (defaults to true)
+  const isPostUpdate = process.argv.includes('--post-update');
+  if (currentConfig.application.show_dashboard_on_startup || isPostUpdate) {
     showDashboard();
   }
 });
