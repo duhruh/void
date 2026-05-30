@@ -325,17 +325,13 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   // Detect binary file secrets
   const isFileSecret = useMemo(() => {
     if (!activeSecret) return false;
+    const lastSegment = selectedSecretPath ? selectedSecretPath.split('/').pop() || '' : '';
+    const hasExtension = /\.[a-zA-Z0-9]{2,5}$/.test(lastSegment);
     return (
       activeSecret.password === '[Void Secure File]' ||
       activeSecret.metadata['Content-Disposition'] !== undefined ||
       activeSecret.metadata['Content-Transfer-Encoding'] !== undefined ||
-      (selectedSecretPath && (
-        selectedSecretPath.toLowerCase().endsWith('.png') ||
-        selectedSecretPath.toLowerCase().endsWith('.jpg') ||
-        selectedSecretPath.toLowerCase().endsWith('.jpeg') ||
-        selectedSecretPath.toLowerCase().endsWith('.gif') ||
-        selectedSecretPath.toLowerCase().endsWith('.pdf')
-      ))
+      !!hasExtension
     );
   }, [activeSecret, selectedSecretPath]);
 

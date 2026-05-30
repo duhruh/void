@@ -399,11 +399,7 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
         })
       });
 
-      const eventSource = new EventSource(`https://${host}/sessions/${sessionId}.json`);
-      const currentConn = connectionsRef.current.get(sessionId);
-      if (currentConn) {
-        currentConn.es = eventSource;
-      }
+      let eventSource: EventSource | null = null;
 
       const handleAnswer = async (answer: any) => {
         if (!answer) return;
@@ -436,13 +432,62 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
         }
       };
 
-      eventSource.addEventListener('put', async (e: any) => {
-        const payload = JSON.parse(e.data);
-        if (!payload) return;
-        const path = payload.path;
-        const data = payload.data;
+      const setupEventSource = () => {
+        if (eventSource) {
+          eventSource.close();
+        }
 
-        if (path === '/') {
+        const es = new EventSource(`https://${host}/sessions/${sessionId}.json`);
+        eventSource = es;
+
+        const currentConn = connectionsRef.current.get(sessionId);
+        if (currentConn) {
+          currentConn.es = es;
+        }
+
+        es.onerror = (err) => {
+          console.error(`EventSource error for session ${sessionId}:`, err);
+          if (es.readyState === EventSource.CLOSED) {
+            console.log(`EventSource closed for session ${sessionId}. Re-scheduling in 5s...`);
+            setTimeout(() => {
+              setActiveDrops(prev => {
+                const currentDrop = prev.find(d => d.sessionId === sessionId);
+                if (currentDrop && currentDrop.status !== 'consumed' && currentDrop.status !== 'failed' && Date.now() < currentDrop.expiresAt) {
+                  setupEventSource();
+                }
+                return prev;
+              });
+            }, 5000);
+          }
+        };
+
+        es.addEventListener('put', async (e: any) => {
+          const payload = JSON.parse(e.data);
+          if (!payload) return;
+          const path = payload.path;
+          const data = payload.data;
+
+          if (path === '/') {
+            if (data) {
+              if (data.answer) {
+                await handleAnswer(data.answer);
+              }
+              if (data.candidates && data.candidates.receiver) {
+                await handleReceiverCandidates(data.candidates.receiver);
+              }
+            }
+          } else if (path === '/answer' && data) {
+            await handleAnswer(data);
+          } else if (path.startsWith('/candidates/receiver') && data) {
+            await handleReceiverCandidates(data);
+          }
+        });
+
+        es.addEventListener('patch', async (e: any) => {
+          const payload = JSON.parse(e.data);
+          if (!payload) return;
+          const data = payload.data;
+
           if (data) {
             if (data.answer) {
               await handleAnswer(data.answer);
@@ -451,27 +496,10 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
               await handleReceiverCandidates(data.candidates.receiver);
             }
           }
-        } else if (path === '/answer' && data) {
-          await handleAnswer(data);
-        } else if (path.startsWith('/candidates/receiver') && data) {
-          await handleReceiverCandidates(data);
-        }
-      });
+        });
+      };
 
-      eventSource.addEventListener('patch', async (e: any) => {
-        const payload = JSON.parse(e.data);
-        if (!payload) return;
-        const data = payload.data;
-
-        if (data) {
-          if (data.answer) {
-            await handleAnswer(data.answer);
-          }
-          if (data.candidates && data.candidates.receiver) {
-            await handleReceiverCandidates(data.candidates.receiver);
-          }
-        }
-      });
+      setupEventSource();
 
     } catch (err) {
       console.error('Connection setup failed:', err);
@@ -525,6 +553,13 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
               conn.es?.close();
               connectionsRef.current.delete(d.sessionId);
             }
+            
+            // Delete session from Firebase since it's expired
+            const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
+            const host = new URL(dbUrl).host;
+            fetch(`https://${host}/sessions/${d.sessionId}.json`, { method: 'DELETE' })
+              .catch(err => console.error('Failed to delete expired session from Firebase:', err));
+
             return { ...d, status: 'failed' as const };
           }
           return d;
@@ -536,7 +571,7 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [config]);
 
   // Cleanup active connections on unmount
   useEffect(() => {
@@ -548,6 +583,31 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
       connectionsRef.current.clear();
     };
   }, []);
+
+  // Handle network status changes: re-initialize active connections when coming back online
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Network status changed to online. Re-initializing active drops...');
+      setActiveDrops(prev => {
+        prev.forEach(d => {
+          const isExpired = Date.now() > d.expiresAt;
+          if (!isExpired && d.status !== 'consumed' && d.status !== 'failed') {
+            const conn = connectionsRef.current.get(d.sessionId);
+            if (conn) {
+              conn.pc?.close();
+              conn.es?.close();
+              connectionsRef.current.delete(d.sessionId);
+            }
+            startConnection(d);
+          }
+        });
+        return prev;
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [config]);
 
   // Drag and Drop Handlers
   const handleDrag = (e: React.DragEvent) => {
