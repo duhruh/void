@@ -299,25 +299,52 @@ export default function VoidDrop({ config }: VoidDropProps) {
       const eventSource = new EventSource(`https://${host}/sessions/${sessionId}.json`);
       newDrop.eventSource = eventSource;
 
+      const handleAnswer = async (answer: any) => {
+        if (!answer) return;
+        try {
+          setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'connecting' } : d));
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        } catch (err) {
+          console.error('Failed to set remote description on sender:', err);
+        }
+      };
+
+      const handleReceiverCandidates = async (candidatesData: any) => {
+        if (!candidatesData) return;
+        const list = (typeof candidatesData === 'object' && candidatesData.candidate)
+          ? [candidatesData]
+          : Object.values(candidatesData);
+
+        for (const cand of list) {
+          if (cand && (cand as any).candidate) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(cand as any));
+            } catch (err) {
+              console.error('Error adding receiver ICE candidate:', err);
+            }
+          }
+        }
+      };
+
       eventSource.addEventListener('put', async (e: any) => {
         const payload = JSON.parse(e.data);
         if (!payload) return;
         const path = payload.path;
         const data = payload.data;
 
-        if (path === '/answer' && data) {
-          setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'connecting' } : d));
-          await pc.setRemoteDescription(new RTCSessionDescription(data));
-        } else if (path.startsWith('/candidates/receiver') && data) {
-          // If singular new candidate appended via push
-          const candidate = typeof data === 'object' && data.candidate ? data : Object.values(data)[0];
-          if (candidate) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(candidate as any));
-            } catch (err) {
-              console.error('Error adding ICE candidate:', err);
+        if (path === '/') {
+          if (data) {
+            if (data.answer) {
+              await handleAnswer(data.answer);
+            }
+            if (data.candidates && data.candidates.receiver) {
+              await handleReceiverCandidates(data.candidates.receiver);
             }
           }
+        } else if (path === '/answer' && data) {
+          await handleAnswer(data);
+        } else if (path.startsWith('/candidates/receiver') && data) {
+          await handleReceiverCandidates(data);
         }
       });
 
@@ -326,9 +353,13 @@ export default function VoidDrop({ config }: VoidDropProps) {
         if (!payload) return;
         const data = payload.data;
 
-        if (data && data.answer) {
-          setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'connecting' } : d));
-          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        if (data) {
+          if (data.answer) {
+            await handleAnswer(data.answer);
+          }
+          if (data.candidates && data.candidates.receiver) {
+            await handleReceiverCandidates(data.candidates.receiver);
+          }
         }
       });
 

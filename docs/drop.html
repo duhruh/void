@@ -406,18 +406,13 @@
           }
         };
 
-        // Listen to signaling channel updates
-        eventSource.addEventListener('put', async (e) => {
-          const payload = JSON.parse(e.data);
-          if (!payload) return;
-          const path = payload.path;
-          const data = payload.data;
-
-          if (path === '/offer' && data) {
-            statusText.innerText = "Negotating connection...";
+        const handleOffer = async (offer) => {
+          if (!offer) return;
+          try {
+            statusText.innerText = "Negotiating connection...";
             statusSub.innerText = "SDP handshake initialized by sender.";
             
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
 
@@ -426,15 +421,48 @@
               method: 'PUT',
               body: JSON.stringify({ sdp: answer.sdp, type: answer.type })
             });
-          } else if (path.startsWith('/candidates/sender') && data) {
-            const candidate = typeof data === 'object' && data.candidate ? data : Object.values(data)[0];
-            if (candidate) {
+          } catch (err) {
+            console.error('Failed to handle SDP offer:', err);
+          }
+        };
+
+        const handleCandidates = async (candidatesData) => {
+          if (!candidatesData) return;
+          const list = (typeof candidatesData === 'object' && candidatesData.candidate)
+            ? [candidatesData]
+            : Object.values(candidatesData);
+
+          for (const cand of list) {
+            if (cand && cand.candidate) {
               try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
               } catch (err) {
                 console.error('Error adding ICE candidate:', err);
               }
             }
+          }
+        };
+
+        // Listen to signaling channel updates
+        eventSource.addEventListener('put', async (e) => {
+          const payload = JSON.parse(e.data);
+          if (!payload) return;
+          const path = payload.path;
+          const data = payload.data;
+
+          if (path === '/') {
+            if (data) {
+              if (data.offer) {
+                await handleOffer(data.offer);
+              }
+              if (data.candidates && data.candidates.sender) {
+                await handleCandidates(data.candidates.sender);
+              }
+            }
+          } else if (path === '/offer' && data) {
+            await handleOffer(data);
+          } else if (path.startsWith('/candidates/sender') && data) {
+            await handleCandidates(data);
           }
         });
 
@@ -443,19 +471,13 @@
           if (!payload) return;
           const data = payload.data;
 
-          if (data && data.offer) {
-            statusText.innerText = "Negotating connection...";
-            statusSub.innerText = "SDP handshake initialized by sender.";
-
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            // Write Answer
-            await fetch(`https://${dbHost}/sessions/${sessionId}/answer.json`, {
-              method: 'PUT',
-              body: JSON.stringify({ sdp: answer.sdp, type: answer.type })
-            });
+          if (data) {
+            if (data.offer) {
+              await handleOffer(data.offer);
+            }
+            if (data.candidates && data.candidates.sender) {
+              await handleCandidates(data.candidates.sender);
+            }
           }
         });
 
