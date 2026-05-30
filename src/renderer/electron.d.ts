@@ -50,6 +50,7 @@ declare global {
       sign(payload: string): Promise<string>;
       signDetached(payloadBase64: string): Promise<string>;
       encrypt(payloadBase64: string, recipientKeyId: string): Promise<string>;
+      readFileBase64(filePath: string): Promise<string>;
     };
   }
 }

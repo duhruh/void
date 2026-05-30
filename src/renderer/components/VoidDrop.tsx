@@ -37,11 +37,17 @@ interface ActiveDrop {
   isFile: boolean;
   size: number;
   created: number;
+  expiresAt: number;
   url: string;
-  status: 'pending' | 'connecting' | 'sending' | 'completed' | 'failed';
+  status: 'pending' | 'connecting' | 'sending' | 'completed' | 'failed' | 'consumed';
   progress?: number;
-  peerConnection?: RTCPeerConnection;
-  eventSource?: EventSource;
+  filePath?: string;
+  text?: string;
+  gpgSign?: boolean;
+  gpgEncrypt?: boolean;
+  recipientKeyId?: string;
+  aesKeyHex?: string;
+  signature?: string;
 }
 
 export default function VoidDrop({ config }: VoidDropProps) {
@@ -55,8 +61,12 @@ export default function VoidDrop({ config }: VoidDropProps) {
   const [activeDrops, setActiveDrops] = useState<ActiveDrop[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [lifetime, setLifetime] = useState(3600000); // Default: 1 hour in ms
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Store connections in a ref map to survive state re-renders
+  const connectionsRef = useRef<Map<string, { pc?: RTCPeerConnection; es?: EventSource }>>(new Map());
 
   // Fetch GPG keys on mount
   useEffect(() => {
@@ -72,133 +82,130 @@ export default function VoidDrop({ config }: VoidDropProps) {
     }
   }, []);
 
-  // Update relative timestamps for drops list
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 10000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Cleanup active connections on unmount
-  useEffect(() => {
-    return () => {
-      activeDrops.forEach(drop => {
-        drop.peerConnection?.close();
-        drop.eventSource?.close();
-      });
+  // Save drops helper
+  const saveDropsToConfig = async (drops: ActiveDrop[]) => {
+    const dropsToPersist = drops.map(d => ({
+      sessionId: d.sessionId,
+      name: d.name,
+      isFile: d.isFile,
+      size: d.size,
+      created: d.created,
+      expiresAt: d.expiresAt,
+      url: d.url,
+      status: d.status,
+      filePath: d.filePath,
+      text: d.text,
+      gpgSign: d.gpgSign,
+      gpgEncrypt: d.gpgEncrypt,
+      recipientKeyId: d.recipientKeyId,
+      aesKeyHex: d.aesKeyHex,
+      signature: d.signature,
+    }));
+    const updatedConfig = {
+      ...config,
+      void_drops: dropsToPersist
     };
-  }, []);
-
-  // Drag and Drop Handlers
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // Helper to force expire a drop link
-  const forceExpire = async (sessionId: string) => {
-    const drop = activeDrops.find(d => d.sessionId === sessionId);
-    if (drop) {
-      drop.peerConnection?.close();
-      drop.eventSource?.close();
-      
-      // Clean up Firebase RTDB session
-      const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
-      const host = new URL(dbUrl).host;
-      try {
-        await fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' });
-      } catch (err) {
-        console.error('Failed to clean up session in Firebase:', err);
-      }
-    }
-    setActiveDrops(prev => prev.filter(d => d.sessionId !== sessionId));
-  };
-
-  // Generate drop link
-  const generateDrop = async () => {
-    if (mode === 'text' && !text.trim()) return;
-    if (mode === 'file' && !file) return;
-
-    setIsGenerating(true);
-    const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
-    const host = new URL(dbUrl).host;
-    const sessionId = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
-    const isFile = mode === 'file';
-    const payloadName = isFile ? file!.name : 'Note';
-    const payloadSize = isFile ? file!.size : text.length;
-
     try {
-      // 1. Process Cryptography (Symmetric AES key first)
-      const rawAesKey = window.crypto.getRandomValues(new Uint8Array(32));
-      const aesKeyHex = Array.from(rawAesKey).map(b => b.toString(16).padStart(2, '0')).join('');
+      await window.config.saveConfig(updatedConfig);
+    } catch (err) {
+      console.error('Failed to save drops to config:', err);
+    }
+  };
 
-      let finalPayload: string | ArrayBuffer;
-      let detachedSignatureText = '';
-      let isPayloadEncrypted = false;
+  // Cryptography Helpers
+  const encryptAesGcm = async (data: ArrayBuffer, rawKey: Uint8Array): Promise<ArrayBuffer> => {
+    const cryptoKey = await window.crypto.subtle.importKey(
+      'raw',
+      rawKey,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt']
+    );
 
-      // Handle GPG options
-      if (gpgSign || gpgEncrypt) {
-        if (!window.gpg) {
-          throw new Error('GPG integration is not available on this system.');
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      data
+    );
+
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    return combined.buffer;
+  };
+
+  const getPayloadForDrop = async (drop: ActiveDrop, initialFile?: File | null): Promise<{ finalPayload: string | ArrayBuffer; isPayloadEncrypted: boolean; detachedSignatureText: string }> => {
+    let base64Payload = '';
+    let clearText = '';
+    let arrayBuffer: ArrayBuffer | null = null;
+
+    if (drop.isFile) {
+      if (initialFile) {
+        arrayBuffer = await initialFile.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
         }
-
-        let clearText = '';
-        let base64Payload = '';
-
-        if (isFile) {
-          // Read file as base64 for GPG operations
-          const arrayBuffer = await file!.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = '';
-          for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          base64Payload = btoa(binary);
-        } else {
-          clearText = text;
-          base64Payload = btoa(unescape(encodeURIComponent(text)));
+        base64Payload = btoa(binary);
+      } else {
+        if (!drop.filePath) {
+          throw new Error('File path is missing for persisted drop.');
         }
+        const base64 = await window.gpg.readFileBase64(drop.filePath);
+        base64Payload = base64;
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        arrayBuffer = bytes.buffer;
+      }
+    } else {
+      clearText = drop.text || '';
+      base64Payload = btoa(unescape(encodeURIComponent(clearText)));
+    }
 
-        if (gpgEncrypt) {
-          // Double encrypt with recipient's public key
-          finalPayload = await window.gpg.encrypt(base64Payload, recipientKeyId);
-          isPayloadEncrypted = true;
-          
-          if (gpgSign) {
-            // Also sign the GPG encrypted payload
-            detachedSignatureText = await window.gpg.signDetached(btoa(finalPayload));
-          }
-        } else {
-          // Only sign
-          if (isFile) {
-            detachedSignatureText = await window.gpg.signDetached(base64Payload);
-            finalPayload = arrayBufferPayload(await file!.arrayBuffer(), rawAesKey);
-          } else {
-            // Clearsign text directly
-            finalPayload = await window.gpg.sign(clearText);
-          }
+    const rawAesKey = new Uint8Array((drop.aesKeyHex || '').match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+    let finalPayload: string | ArrayBuffer;
+    let detachedSignatureText = '';
+    let isPayloadEncrypted = false;
+
+    if (drop.gpgSign || drop.gpgEncrypt) {
+      if (!window.gpg) {
+        throw new Error('GPG integration is not available.');
+      }
+
+      if (drop.gpgEncrypt) {
+        finalPayload = await window.gpg.encrypt(base64Payload, drop.recipientKeyId || '');
+        isPayloadEncrypted = true;
+        if (drop.gpgSign) {
+          detachedSignatureText = await window.gpg.signDetached(btoa(finalPayload as string));
         }
       } else {
-        // Standard zero-knowledge AES-GCM encryption
-        const buffer = isFile ? await file!.arrayBuffer() : new TextEncoder().encode(text);
-        finalPayload = await encryptAesGcm(buffer, rawAesKey);
+        if (drop.isFile) {
+          detachedSignatureText = await window.gpg.signDetached(base64Payload);
+          finalPayload = arrayBuffer!;
+        } else {
+          finalPayload = await window.gpg.sign(clearText);
+        }
       }
+    } else {
+      const buffer = drop.isFile ? arrayBuffer! : new TextEncoder().encode(clearText);
+      finalPayload = await encryptAesGcm(buffer, rawAesKey);
+    }
 
-      // Create WebRTC Connection
+    return { finalPayload, isPayloadEncrypted, detachedSignatureText };
+  };
+
+  const startConnection = async (drop: ActiveDrop, initialFile?: File | null) => {
+    const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
+    const host = new URL(dbUrl).host;
+    const { sessionId, aesKeyHex } = drop;
+
+    try {
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
@@ -206,37 +213,30 @@ export default function VoidDrop({ config }: VoidDropProps) {
       const dc = pc.createDataChannel('sendChannel', { ordered: true });
       dc.binaryType = 'arraybuffer';
 
-      // Setup drop item
-      const newDrop: ActiveDrop = {
-        sessionId,
-        name: payloadName,
-        isFile,
-        size: payloadSize,
-        created: Date.now(),
-        url: `https://duhruh.me/void/drop.html#${host}.${sessionId}.${aesKeyHex}`,
-        status: 'pending',
-        peerConnection: pc,
-      };
+      connectionsRef.current.set(sessionId, { pc });
 
-      // Handle Data Channel Open
       dc.onopen = async () => {
-        console.log('WebRTC Data Channel Opened!');
-        setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'sending', progress: 0 } : d));
+        console.log('WebRTC Data Channel Opened for session', sessionId);
+        setActiveDrops(prev => {
+          const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'sending' as const, progress: 0 } : d);
+          saveDropsToConfig(updated);
+          return updated;
+        });
 
         try {
-          // Send payload metadata header
+          const { finalPayload, isPayloadEncrypted, detachedSignatureText } = await getPayloadForDrop(drop, initialFile);
+
           dc.send(JSON.stringify({
             type: 'header',
-            name: payloadName,
-            size: payloadSize,
-            isFile,
-            isGpgSigned: gpgSign,
-            isGpgEncrypted: gpgEncrypt,
-            signature: detachedSignatureText,
+            name: drop.name,
+            size: drop.size,
+            isFile: drop.isFile,
+            isGpgSigned: drop.gpgSign,
+            isGpgEncrypted: drop.gpgEncrypt,
+            signature: detachedSignatureText || drop.signature,
             isAesEncrypted: !isPayloadEncrypted,
           }));
 
-          // Send payload in 16KB chunks
           const bytesToSend = typeof finalPayload === 'string' 
             ? new TextEncoder().encode(finalPayload) 
             : new Uint8Array(finalPayload);
@@ -252,30 +252,46 @@ export default function VoidDrop({ config }: VoidDropProps) {
             const progress = Math.min(100, Math.round((offset / bytesToSend.byteLength) * 100));
             setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, progress } : d));
 
-            // Throttle to prevent WebRTC buffering overflow
             if (dc.bufferedAmount > 1024 * 1024) {
               await new Promise(resolve => setTimeout(resolve, 50));
             }
           }
 
-          // Send EOF signal
           dc.send(JSON.stringify({ type: 'eof' }));
           
-          setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'completed' } : d));
-          
-          // Automatic single-response lookup rule clean up
-          setTimeout(() => forceExpire(sessionId), 3000);
+          setActiveDrops(prev => {
+            const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'consumed' as const, progress: 100 } : d);
+            saveDropsToConfig(updated);
+            return updated;
+          });
+
+          // Single-response lookup rule clean up on DB immediately
+          fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' })
+            .catch(err => console.error('Failed to delete session:', err));
+
+          setTimeout(() => {
+            pc.close();
+            const conn = connectionsRef.current.get(sessionId);
+            if (conn) {
+              conn.es?.close();
+              connectionsRef.current.delete(sessionId);
+            }
+          }, 3000);
+
         } catch (err) {
           console.error('Data channel streaming error:', err);
-          setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'failed' } : d));
+          setActiveDrops(prev => {
+            const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'failed' as const } : d);
+            saveDropsToConfig(updated);
+            return updated;
+          });
         }
       };
 
       dc.onclose = () => {
-        console.log('Data channel closed');
+        console.log('Data channel closed for session', sessionId);
       };
 
-      // Gather ICE candidates and push to Firebase
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           fetch(`https://${host}/sessions/${sessionId}/candidates/sender.json`, {
@@ -285,24 +301,31 @@ export default function VoidDrop({ config }: VoidDropProps) {
         }
       };
 
-      // Create SDP Offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Write Offer to Firebase
-      await fetch(`https://${host}/sessions/${sessionId}/offer.json`, {
-        method: 'PUT',
-        body: JSON.stringify({ sdp: offer.sdp, type: offer.type })
+      await fetch(`https://${host}/sessions/${sessionId}.json`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          offer: { sdp: offer.sdp, type: offer.type },
+          metadata: { createdAt: Date.now(), expiresAt: drop.expiresAt }
+        })
       });
 
-      // Listen for Answer and ICE candidates from recipient
       const eventSource = new EventSource(`https://${host}/sessions/${sessionId}.json`);
-      newDrop.eventSource = eventSource;
+      const currentConn = connectionsRef.current.get(sessionId);
+      if (currentConn) {
+        currentConn.es = eventSource;
+      }
 
       const handleAnswer = async (answer: any) => {
         if (!answer) return;
         try {
-          setActiveDrops(prev => prev.map(d => d.sessionId === sessionId ? { ...d, status: 'connecting' } : d));
+          setActiveDrops(prev => {
+            const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'connecting' as const } : d);
+            saveDropsToConfig(updated);
+            return updated;
+          });
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
         } catch (err) {
           console.error('Failed to set remote description on sender:', err);
@@ -363,13 +386,199 @@ export default function VoidDrop({ config }: VoidDropProps) {
         }
       });
 
-      // Add to active drops list
-      setActiveDrops(prev => [newDrop, ...prev]);
+    } catch (err) {
+      console.error('Connection setup failed:', err);
+      setActiveDrops(prev => {
+        const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'failed' as const } : d);
+        saveDropsToConfig(updated);
+        return updated;
+      });
+    }
+  };
 
-      // Copy link to clipboard
-      await window.clipboard.writeText(newDrop.url);
+  // Mount Effect: Restore drops from config and re-initialize connections if active & non-expired
+  useEffect(() => {
+    const persisted = config.void_drops || [];
+    const restored: ActiveDrop[] = [];
+
+    persisted.forEach(d => {
+      const isExpired = Date.now() > d.expiresAt;
+      const status: ActiveDrop['status'] = isExpired && d.status !== 'consumed' ? 'failed' : d.status;
+
+      const restoredDrop: ActiveDrop = {
+        ...d,
+        status,
+      };
+
+      restored.push(restoredDrop);
+
+      if (!isExpired && d.status !== 'consumed' && d.status !== 'failed') {
+        startConnection(restoredDrop);
+      }
+    });
+
+    setActiveDrops(restored);
+  }, []);
+
+  // Tick effect: Updates countdown timer every second and terminates newly expired drops
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(t => t + 1);
       
-      // Clear inputs
+      setActiveDrops(prev => {
+        let changed = false;
+        const updated = prev.map(d => {
+          if (d.status !== 'consumed' && d.status !== 'failed' && Date.now() > d.expiresAt) {
+            changed = true;
+            const conn = connectionsRef.current.get(d.sessionId);
+            if (conn) {
+              conn.pc?.close();
+              conn.es?.close();
+              connectionsRef.current.delete(d.sessionId);
+            }
+            return { ...d, status: 'failed' as const };
+          }
+          return d;
+        });
+        if (changed) {
+          saveDropsToConfig(updated);
+        }
+        return updated;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Cleanup active connections on unmount
+  useEffect(() => {
+    return () => {
+      connectionsRef.current.forEach(conn => {
+        conn.pc?.close();
+        conn.es?.close();
+      });
+      connectionsRef.current.clear();
+    };
+  }, []);
+
+  // Drag and Drop Handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Helper to force expire / dismiss a drop link
+  const forceExpire = async (sessionId: string) => {
+    const drop = activeDrops.find(d => d.sessionId === sessionId);
+    if (drop) {
+      const conn = connectionsRef.current.get(sessionId);
+      if (conn) {
+        conn.pc?.close();
+        conn.es?.close();
+        connectionsRef.current.delete(sessionId);
+      }
+      
+      const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
+      const host = new URL(dbUrl).host;
+      try {
+        await fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' });
+      } catch (err) {
+        console.error('Failed to clean up session in Firebase:', err);
+      }
+    }
+    setActiveDrops(prev => {
+      const updated = prev.filter(d => d.sessionId !== sessionId);
+      saveDropsToConfig(updated);
+      return updated;
+    });
+  };
+
+  // Generate drop link
+  const generateDrop = async () => {
+    if (mode === 'text' && !text.trim()) return;
+    if (mode === 'file' && !file) return;
+
+    setIsGenerating(true);
+    const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
+    const host = new URL(dbUrl).host;
+    const sessionId = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+    const isFile = mode === 'file';
+    const payloadName = isFile ? file!.name : 'Note';
+    const payloadSize = isFile ? file!.size : text.length;
+    const expiresAt = Date.now() + lifetime;
+
+    try {
+      const rawAesKey = window.crypto.getRandomValues(new Uint8Array(32));
+      const aesKeyHex = Array.from(rawAesKey).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const newDrop: ActiveDrop = {
+        sessionId,
+        name: payloadName,
+        isFile,
+        size: payloadSize,
+        created: Date.now(),
+        expiresAt,
+        url: `https://duhruh.me/void/drop.html#${host}.${sessionId}.${aesKeyHex}`,
+        status: 'pending',
+        filePath: isFile ? file!.path : undefined,
+        text: isFile ? undefined : text,
+        gpgSign,
+        gpgEncrypt,
+        recipientKeyId: gpgEncrypt ? recipientKeyId : undefined,
+        aesKeyHex,
+      };
+
+      // Set signature block to save GPG signature calculation time if reconnected
+      if (gpgSign || gpgEncrypt) {
+        if (!window.gpg) throw new Error('GPG integration is not available.');
+        let base64Payload = '';
+        if (isFile) {
+          const arrayBuffer = await file!.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          base64Payload = btoa(binary);
+        } else {
+          base64Payload = btoa(unescape(encodeURIComponent(text)));
+        }
+
+        if (gpgEncrypt) {
+          const enc = await window.gpg.encrypt(base64Payload, recipientKeyId);
+          if (gpgSign) {
+            newDrop.signature = await window.gpg.signDetached(btoa(enc));
+          }
+        } else {
+          if (isFile) {
+            newDrop.signature = await window.gpg.signDetached(base64Payload);
+          }
+        }
+      }
+
+      setActiveDrops(prev => {
+        const updated = [newDrop, ...prev];
+        saveDropsToConfig(updated);
+        return updated;
+      });
+
+      await startConnection(newDrop, file);
+
+      await window.clipboard.writeText(newDrop.url);
       setText('');
       setFile(null);
     } catch (err: any) {
@@ -380,42 +589,31 @@ export default function VoidDrop({ config }: VoidDropProps) {
     }
   };
 
-  // Cryptography Helpers
-  const encryptAesGcm = async (data: ArrayBuffer, rawKey: Uint8Array): Promise<ArrayBuffer> => {
-    const cryptoKey = await window.crypto.subtle.importKey(
-      'raw',
-      rawKey,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt']
-    );
+  const getRemainingTimeText = (expiresAt: number) => {
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return 'Expired';
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
 
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await window.crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      cryptoKey,
-      data
-    );
-
-    // Concat IV and Ciphertext
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv, 0);
-    combined.set(new Uint8Array(encrypted), iv.length);
-    return combined.buffer;
+    if (hours > 0) {
+      return `${hours}h ${minutes}m left`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s left`;
+    }
+    return `${seconds}s left`;
   };
 
-  const arrayBufferPayload = (buffer: ArrayBuffer, rawKey: Uint8Array): ArrayBuffer => {
-    // Return buffer dummy payload when encryption is GPG handled
-    return buffer;
-  };
-
-  const getRelativeTime = (timestamp: number) => {
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    if (seconds < 10) return 'Just now';
-    if (seconds < 60) return `${seconds}s ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    return new Date(timestamp).toLocaleTimeString();
+  const getDropSubtitle = (drop: ActiveDrop) => {
+    const sizeStr = formatSize(drop.size);
+    if (drop.status === 'consumed') {
+      return `${sizeStr} • Spent`;
+    }
+    if (Date.now() > drop.expiresAt) {
+      return `${sizeStr} • Expired`;
+    }
+    return `${sizeStr} • ${getRemainingTimeText(drop.expiresAt)}`;
   };
 
   const formatSize = (bytes: number) => {
@@ -475,7 +673,7 @@ export default function VoidDrop({ config }: VoidDropProps) {
                         {drop.name}
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'var(--color-outline)', display: 'block' }}>
-                        {formatSize(drop.size)} • {getRelativeTime(drop.created)}
+                        {getDropSubtitle(drop)}
                       </Typography>
                     </Box>
                     <IconButton size="small" onClick={() => forceExpire(drop.sessionId)} sx={{ color: '#ba1a1a', ml: 1 }}>
@@ -513,9 +711,17 @@ export default function VoidDrop({ config }: VoidDropProps) {
                         </Typography>
                       </Box>
                     )}
+                    {drop.status === 'consumed' && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CheckCircleIcon size={12} sx={{ color: '#4caf50', fontSize: '14px' }} />
+                        <Typography variant="caption" sx={{ color: '#4caf50', fontWeight: 600 }}>
+                          Spent (Delivered)
+                        </Typography>
+                      </Box>
+                    )}
                     {drop.status === 'failed' && (
                       <Typography variant="caption" sx={{ color: '#ba1a1a', fontWeight: 600 }}>
-                        Connection lost.
+                        {Date.now() > drop.expiresAt ? 'Expired' : 'Connection lost'}
                       </Typography>
                     )}
                   </Box>
@@ -687,6 +893,24 @@ export default function VoidDrop({ config }: VoidDropProps) {
             <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--color-outline)' }}>
               Security Options
             </Typography>
+
+            <FormControl fullWidth size="small" sx={{ mb: 1, mt: 0.5 }}>
+              <InputLabel id="drop-lifetime-label">Link Lifetime</InputLabel>
+              <Select
+                labelId="drop-lifetime-label"
+                value={lifetime}
+                label="Link Lifetime"
+                onChange={(e) => setLifetime(Number(e.target.value))}
+                sx={{ borderRadius: '12px' }}
+              >
+                <MenuItem value={1800000}>30 Minutes</MenuItem>
+                <MenuItem value={3600000}>1 Hour (Default)</MenuItem>
+                <MenuItem value={7200000}>2 Hours</MenuItem>
+                <MenuItem value={18000000}>5 Hours</MenuItem>
+                <MenuItem value={43200000}>12 Hours</MenuItem>
+                <MenuItem value={86400000}>24 Hours</MenuItem>
+              </Select>
+            </FormControl>
 
             <FormControlLabel
               control={

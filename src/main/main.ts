@@ -773,6 +773,11 @@ fso.DeleteFile WScript.ScriptFullName
       child.stdin.end();
     });
   });
+
+  ipcMain.handle('gpg:read-file-base64', async (_, filePath: string) => {
+    const fs = require('fs');
+    return fs.readFileSync(filePath, 'base64');
+  });
 }
 
 // App lifecycle

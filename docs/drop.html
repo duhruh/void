@@ -451,7 +451,20 @@
           const data = payload.data;
 
           if (path === '/') {
+            if (data === null) {
+              showError("This Void Drop link has expired or has already been consumed.");
+              eventSource.close();
+              peerConnection.close();
+              return;
+            }
             if (data) {
+              // Check expiration
+              if (data.metadata && data.metadata.expiresAt && Date.now() > data.metadata.expiresAt) {
+                showError("This Void Drop link has expired.");
+                eventSource.close();
+                peerConnection.close();
+                return;
+              }
               if (data.offer) {
                 await handleOffer(data.offer);
               }
@@ -472,6 +485,13 @@
           const data = payload.data;
 
           if (data) {
+            // Check expiration
+            if (data.metadata && data.metadata.expiresAt && Date.now() > data.metadata.expiresAt) {
+              showError("This Void Drop link has expired.");
+              eventSource.close();
+              peerConnection.close();
+              return;
+            }
             if (data.offer) {
               await handleOffer(data.offer);
             }

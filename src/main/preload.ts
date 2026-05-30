@@ -77,4 +77,5 @@ contextBridge.exposeInMainWorld('gpg', {
   sign: (payload: string): Promise<string> => ipcRenderer.invoke('gpg:sign', payload),
   signDetached: (payloadBase64: string): Promise<string> => ipcRenderer.invoke('gpg:sign-detached', payloadBase64),
   encrypt: (payloadBase64: string, recipientKeyId: string): Promise<string> => ipcRenderer.invoke('gpg:encrypt', payloadBase64, recipientKeyId),
+  readFileBase64: (filePath: string): Promise<string> => ipcRenderer.invoke('gpg:read-file-base64', filePath),
 });

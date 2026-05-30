@@ -44,6 +44,22 @@ export interface AppConfig {
     enable_screenshots?: boolean;
     signaling_database_url?: string;
   };
+  void_drops?: Array<{
+    sessionId: string;
+    name: string;
+    isFile: boolean;
+    size: number;
+    created: number;
+    expiresAt: number;
+    url: string;
+    status: 'pending' | 'connecting' | 'sending' | 'completed' | 'failed' | 'consumed';
+    filePath?: string;
+    text?: string;
+    gpgSign?: boolean;
+    gpgEncrypt?: boolean;
+    recipientKeyId?: string;
+    aesKeyHex?: string;
+  }>;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -106,6 +122,7 @@ const DEFAULT_CONFIG: AppConfig = {
     enable_screenshots: false,
     signaling_database_url: 'https://void-52b64-default-rtdb.firebaseio.com/',
   },
+  void_drops: [],
 };
 
 export function getConfigPath(): string {
@@ -148,6 +165,7 @@ export function loadConfig(configFilePath?: string): AppConfig {
           },
         },
         developer: { ...DEFAULT_CONFIG.developer, ...(loaded.developer || {}) },
+        void_drops: loaded.void_drops || [],
       };
     }
   } catch (err) {
