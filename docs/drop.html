@@ -387,6 +387,7 @@
       let eventSource = null;
       let receivedChunks = [];
       let metadata = null;
+      let maxAccess = 1;
 
       try {
         peerConnection = new RTCPeerConnection({
@@ -465,6 +466,9 @@
                 peerConnection.close();
                 return;
               }
+              if (data.metadata && typeof data.metadata.maxAccess === 'number') {
+                maxAccess = data.metadata.maxAccess;
+              }
               if (data.offer) {
                 await handleOffer(data.offer);
               }
@@ -472,6 +476,12 @@
                 await handleCandidates(data.candidates.sender);
               }
             }
+          } else if (path === '/metadata' && data) {
+            if (typeof data.maxAccess === 'number') {
+              maxAccess = data.maxAccess;
+            }
+          } else if (path === '/metadata/maxAccess' && data) {
+            maxAccess = Number(data);
           } else if (path === '/offer' && data) {
             await handleOffer(data);
           } else if (path.startsWith('/candidates/sender') && data) {
@@ -491,6 +501,9 @@
               eventSource.close();
               peerConnection.close();
               return;
+            }
+            if (data.metadata && typeof data.metadata.maxAccess === 'number') {
+              maxAccess = data.metadata.maxAccess;
             }
             if (data.offer) {
               await handleOffer(data.offer);
@@ -528,9 +541,11 @@
                   peerConnection.close();
                   eventSource.close();
                   
-                  // Delete signaling session in Firebase (single response constraint)
-                  fetch(`https://${dbHost}/sessions/${sessionId}.json`, { method: 'DELETE' })
-                    .catch(err => console.error('Failed cleanup:', err));
+                  // Delete signaling session in Firebase (single response constraint) only if maxAccess <= 1
+                  if (maxAccess <= 1) {
+                    fetch(`https://${dbHost}/sessions/${sessionId}.json`, { method: 'DELETE' })
+                      .catch(err => console.error('Failed cleanup:', err));
+                  }
 
                   // Process buffer
                   await handlePayloadReceived(receivedChunks, metadata, aesKeyHex);

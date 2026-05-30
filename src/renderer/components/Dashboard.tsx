@@ -588,6 +588,77 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
     }
   };
 
+  // Share via Void Drop from Vault
+  const handleShareFromVault = async () => {
+    if (!activeSecret || !selectedSecretPath) return;
+
+    try {
+      const dbUrl = config.developer?.signaling_database_url || 'https://void-52b64-default-rtdb.firebaseio.com/';
+      const host = new URL(dbUrl).host;
+      const sessionId = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+      
+      const rawAesKey = window.crypto.getRandomValues(new Uint8Array(32));
+      const aesKeyHex = Array.from(rawAesKey).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      let payloadName = selectedSecretPath.split('/').pop() || 'Secret';
+      const isFile = isFileSecret;
+      let textPayload = '';
+      let size = 0;
+
+      if (isFile) {
+        if (!binaryBase64) {
+          showToast('File content is still loading. Please try again in a moment.');
+          return;
+        }
+        textPayload = binaryBase64;
+        size = getByteSize(binaryBase64);
+        if (activeSecret.metadata['filename']) {
+          payloadName = activeSecret.metadata['filename'];
+        }
+      } else {
+        textPayload = activeSecret.rawBody 
+          ? `${activeSecret.password}\n${activeSecret.rawBody}`
+          : activeSecret.password;
+        size = textPayload.length;
+      }
+
+      const expiresAt = Date.now() + 3600000; // Default: 1 hour for vault shares
+
+      const newDrop = {
+        sessionId,
+        name: payloadName,
+        isFile,
+        size,
+        created: Date.now(),
+        expiresAt,
+        url: `https://duhruh.me/void/drop.html#${host}.${sessionId}.${aesKeyHex}`,
+        status: 'pending' as const,
+        text: textPayload,
+        aesKeyHex,
+        maxAccess: 1,
+        accessCount: 0,
+      };
+
+      const updatedDrops = [newDrop, ...(config.void_drops || [])];
+      setConfig(prev => {
+        if (!prev) return prev;
+        return { ...prev, void_drops: updatedDrops };
+      });
+
+      await window.config.saveConfig({
+        ...config,
+        void_drops: updatedDrops,
+      });
+
+      await window.clipboard.writeText(newDrop.url);
+      showToast('Void Drop 1-time link copied to clipboard! (Expires in 1 hour)');
+
+    } catch (err: any) {
+      console.error('Failed to generate vault share link:', err);
+      showToast('Failed to generate Void Drop link: ' + (err.message || String(err)));
+    }
+  };
+
   // Delete Secret
   const handleDeleteSecret = async () => {
     if (!selectedSecretPath) return;
@@ -1076,8 +1147,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           </Tooltip>
         </Box>
 
-        {activeTab === 'vault' ? (
-          <>
+        <Box sx={{ display: activeTab === 'vault' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
             {/* PANE 1: Navigation Tree (Left Pane) */}
       <Box
         sx={{
@@ -1378,6 +1448,14 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           <Box sx={{ display: 'flex', gap: 1 }}>
             {!isEditing && selectedSecretPath && (
               <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AttachFileIcon />}
+                  onClick={handleShareFromVault}
+                >
+                  Void Drop
+                </Button>
                 <Button variant="outlined" size="small" onClick={() => setIsEditing(true)}>
                   Edit
                 </Button>
@@ -1726,10 +1804,16 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           </Button>
         </Box>
       </Box>
-    </>
-  ) : (
-    <VoidDrop config={config} />
-  )}
+        </Box>
+        <Box
+          sx={
+            activeTab === 'drop'
+              ? { display: 'flex', flex: 1, overflow: 'hidden' }
+              : { position: 'absolute', left: '-9999px', top: '-9999px', width: '1px', height: '1px', overflow: 'hidden' }
+          }
+        >
+          <VoidDrop config={config} setConfig={setConfig} />
+        </Box>
 
       {/* SETTINGS DIALOG */}
       <SettingsDialog

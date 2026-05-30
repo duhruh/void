@@ -29,6 +29,7 @@ import { AppConfig } from '../../main/config';
 
 interface VoidDropProps {
   config: AppConfig;
+  setConfig?: React.Dispatch<React.SetStateAction<AppConfig | null>>;
 }
 
 interface ActiveDrop {
@@ -48,9 +49,11 @@ interface ActiveDrop {
   recipientKeyId?: string;
   aesKeyHex?: string;
   signature?: string;
+  maxAccess?: number;
+  accessCount?: number;
 }
 
-export default function VoidDrop({ config }: VoidDropProps) {
+export default function VoidDrop({ config, setConfig }: VoidDropProps) {
   const [mode, setMode] = useState<'text' | 'file'>('text');
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -62,11 +65,15 @@ export default function VoidDrop({ config }: VoidDropProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [lifetime, setLifetime] = useState(3600000); // Default: 1 hour in ms
+  const [maxAccess, setMaxAccess] = useState(1); // Default is 1
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Store connections in a ref map to survive state re-renders
   const connectionsRef = useRef<Map<string, { pc?: RTCPeerConnection; es?: EventSource }>>(new Map());
+
+  // Prevent infinite loops and timing issues for connected tunnels
+  const connectedSessionsRef = useRef<Set<string>>(new Set());
 
   // Fetch GPG keys on mount
   useEffect(() => {
@@ -100,6 +107,8 @@ export default function VoidDrop({ config }: VoidDropProps) {
       recipientKeyId: d.recipientKeyId,
       aesKeyHex: d.aesKeyHex,
       signature: d.signature,
+      maxAccess: d.maxAccess,
+      accessCount: d.accessCount,
     }));
     const updatedConfig = {
       ...config,
@@ -107,10 +116,44 @@ export default function VoidDrop({ config }: VoidDropProps) {
     };
     try {
       await window.config.saveConfig(updatedConfig);
+      if (setConfig) {
+        setConfig(updatedConfig);
+      }
     } catch (err) {
       console.error('Failed to save drops to config:', err);
     }
   };
+
+  // Listen for externally added drops (e.g., generated directly from the Vault)
+  useEffect(() => {
+    const persisted = config.void_drops || [];
+    let updated = false;
+
+    persisted.forEach(d => {
+      const isAlreadyTracked = connectedSessionsRef.current.has(d.sessionId) || activeDrops.some(x => x.sessionId === d.sessionId);
+      if (!isAlreadyTracked) {
+        updated = true;
+        const isExpired = Date.now() > d.expiresAt;
+        const status: ActiveDrop['status'] = isExpired && d.status !== 'consumed' ? 'failed' : d.status;
+
+        const newDropItem: ActiveDrop = {
+          ...d,
+          status,
+        };
+
+        // Track and start connection
+        connectedSessionsRef.current.add(d.sessionId);
+        setActiveDrops(prev => {
+          if (prev.some(x => x.sessionId === d.sessionId)) return prev;
+          return [newDropItem, ...prev];
+        });
+
+        if (!isExpired && d.status !== 'consumed' && d.status !== 'failed') {
+          startConnection(newDropItem);
+        }
+      }
+    });
+  }, [config.void_drops, activeDrops]);
 
   // Cryptography Helpers
   const encryptAesGcm = async (data: ArrayBuffer, rawKey: Uint8Array): Promise<ArrayBuffer> => {
@@ -149,6 +192,16 @@ export default function VoidDrop({ config }: VoidDropProps) {
           binary += String.fromCharCode(bytes[i]);
         }
         base64Payload = btoa(binary);
+      } else if (drop.text) {
+        // Vault shared file: base64 content is already loaded into drop.text
+        base64Payload = drop.text;
+        const binaryString = atob(drop.text);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        arrayBuffer = bytes.buffer;
       } else {
         if (!drop.filePath) {
           throw new Error('File path is missing for persisted drop.');
@@ -260,23 +313,57 @@ export default function VoidDrop({ config }: VoidDropProps) {
           dc.send(JSON.stringify({ type: 'eof' }));
           
           setActiveDrops(prev => {
-            const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'consumed' as const, progress: 100 } : d);
+            const currentDrop = prev.find(d => d.sessionId === sessionId);
+            if (!currentDrop) return prev;
+
+            const nextAccessCount = (currentDrop.accessCount || 0) + 1;
+            const isFullyConsumed = nextAccessCount >= (currentDrop.maxAccess || 1);
+
+            const updated = prev.map(d => {
+              if (d.sessionId === sessionId) {
+                return {
+                  ...d,
+                  accessCount: nextAccessCount,
+                  status: isFullyConsumed ? ('consumed' as const) : ('pending' as const),
+                  progress: 100,
+                };
+              }
+              return d;
+            });
             saveDropsToConfig(updated);
+
+            // Clean up connection after a brief delay
+            setTimeout(() => {
+              pc.close();
+              const conn = connectionsRef.current.get(sessionId);
+              if (conn) {
+                conn.es?.close();
+                connectionsRef.current.delete(sessionId);
+              }
+
+              if (isFullyConsumed) {
+                // Delete session from Firebase (single-response / fully consumed)
+                fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' })
+                  .catch(err => console.error('Failed to delete session:', err));
+              } else {
+                // Prepare for next connection: clear answer and receiver candidates
+                fetch(`https://${host}/sessions/${sessionId}/answer.json`, { method: 'DELETE' })
+                  .catch(err => console.error('Failed to clear answer:', err));
+                fetch(`https://${host}/sessions/${sessionId}/candidates/receiver.json`, { method: 'DELETE' })
+                  .catch(err => console.error('Failed to clear candidates:', err));
+
+                // Re-start connection engine for the next peer
+                const updatedDrop = updated.find(d => d.sessionId === sessionId);
+                if (updatedDrop) {
+                  setTimeout(() => {
+                    startConnection(updatedDrop, initialFile);
+                  }, 1000);
+                }
+              }
+            }, 3000);
+
             return updated;
           });
-
-          // Single-response lookup rule clean up on DB immediately
-          fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' })
-            .catch(err => console.error('Failed to delete session:', err));
-
-          setTimeout(() => {
-            pc.close();
-            const conn = connectionsRef.current.get(sessionId);
-            if (conn) {
-              conn.es?.close();
-              connectionsRef.current.delete(sessionId);
-            }
-          }, 3000);
 
         } catch (err) {
           console.error('Data channel streaming error:', err);
@@ -308,7 +395,7 @@ export default function VoidDrop({ config }: VoidDropProps) {
         method: 'PATCH',
         body: JSON.stringify({
           offer: { sdp: offer.sdp, type: offer.type },
-          metadata: { createdAt: Date.now(), expiresAt: drop.expiresAt }
+          metadata: { createdAt: Date.now(), expiresAt: drop.expiresAt, maxAccess: drop.maxAccess || 1 }
         })
       });
 
@@ -413,6 +500,7 @@ export default function VoidDrop({ config }: VoidDropProps) {
       restored.push(restoredDrop);
 
       if (!isExpired && d.status !== 'consumed' && d.status !== 'failed') {
+        connectedSessionsRef.current.add(d.sessionId);
         startConnection(restoredDrop);
       }
     });
@@ -540,6 +628,8 @@ export default function VoidDrop({ config }: VoidDropProps) {
         gpgEncrypt,
         recipientKeyId: gpgEncrypt ? recipientKeyId : undefined,
         aesKeyHex,
+        maxAccess,
+        accessCount: 0,
       };
 
       // Set signature block to save GPG signature calculation time if reconnected
@@ -633,15 +723,15 @@ export default function VoidDrop({ config }: VoidDropProps) {
           borderRight: '1px solid var(--color-surface-variant)',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: 'rgba(254, 247, 255, 0.4)',
+          backgroundColor: 'rgba(103, 80, 164, 0.04)',
           height: '100%',
         }}
       >
         <Box sx={{ padding: '16px', borderBottom: '1px solid var(--color-surface-variant)' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'var(--color-on-surface)' }}>
             Active Drops
           </Typography>
-          <Typography variant="caption" sx={{ color: 'var(--color-outline)' }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)' }}>
             Links currently hosted in volatile memory
           </Typography>
         </Box>
@@ -649,7 +739,7 @@ export default function VoidDrop({ config }: VoidDropProps) {
         <Box sx={{ flex: 1, overflowY: 'auto' }}>
           {activeDrops.length === 0 ? (
             <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: 'var(--color-outline)' }}>
+              <Typography variant="body2" sx={{ color: 'var(--color-on-surface-variant)' }}>
                 No active drop tunnels open.
               </Typography>
             </Box>
@@ -669,10 +759,10 @@ export default function VoidDrop({ config }: VoidDropProps) {
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all', color: 'var(--color-on-surface)' }}>
                         {drop.name}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'var(--color-outline)', display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)', display: 'block' }}>
                         {getDropSubtitle(drop)}
                       </Typography>
                     </Box>
@@ -683,7 +773,7 @@ export default function VoidDrop({ config }: VoidDropProps) {
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                     {drop.status === 'pending' && (
-                      <Typography variant="caption" sx={{ color: 'var(--color-outline)' }}>
+                      <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)' }}>
                         Waiting for recipient...
                       </Typography>
                     )}
@@ -909,6 +999,23 @@ export default function VoidDrop({ config }: VoidDropProps) {
                 <MenuItem value={18000000}>5 Hours</MenuItem>
                 <MenuItem value={43200000}>12 Hours</MenuItem>
                 <MenuItem value={86400000}>24 Hours</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+              <InputLabel id="drop-access-label">Access Limit</InputLabel>
+              <Select
+                labelId="drop-access-label"
+                value={maxAccess}
+                label="Access Limit"
+                onChange={(e) => setMaxAccess(Number(e.target.value))}
+                sx={{ borderRadius: '12px' }}
+              >
+                <MenuItem value={1}>1 download/view (Default)</MenuItem>
+                <MenuItem value={2}>2 downloads/views</MenuItem>
+                <MenuItem value={3}>3 downloads/views</MenuItem>
+                <MenuItem value={5}>5 downloads/views</MenuItem>
+                <MenuItem value={10}>10 downloads/views</MenuItem>
               </Select>
             </FormControl>
 
