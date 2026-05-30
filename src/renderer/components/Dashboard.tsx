@@ -121,6 +121,33 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   const [devMenuAnchor, setDevMenuAnchor] = useState<null | HTMLElement>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
 
+  // Custom themed AlertDialog state
+  const [appAlertDialog, setAppAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    severity: 'info' | 'error' | 'success' | 'warning';
+    showConfirm?: boolean;
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  } | null>(null);
+
+  const showAppAlert = (title: string, message: string, severity: 'info' | 'error' | 'success' | 'warning' = 'info') => {
+    setAppAlertDialog({ open: true, title, message, severity });
+  };
+
+  const showAppConfirm = (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => {
+    setAppAlertDialog({
+      open: true,
+      title,
+      message,
+      severity: 'warning',
+      showConfirm: true,
+      onConfirm,
+      onCancel
+    });
+  };
+
   // Update State
   const [updateInfo, setUpdateInfo] = useState<{
     updateAvailable: boolean;
@@ -149,16 +176,16 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           setUpdateInfo({ updateAvailable: false });
           if (isManual) {
             if (result.error) {
-              alert(`Error checking for updates: ${result.error}`);
+              showAppAlert("Update Check Error", `Error checking for updates: ${result.error}`, "error");
             } else {
-              alert(`Void is up to date!\n\nVersion v${appVersion} is currently the latest version.`);
+              showAppAlert("Up to Date", `Void is up to date!\n\nVersion v${appVersion} is currently the latest version.`, "success");
             }
           }
         }
       } catch (err: any) {
         console.error('Failed to check for updates:', err);
         if (isManual) {
-          alert(`Failed to check for updates: ${err.message || String(err)}`);
+          showAppAlert("Update Check Error", `Failed to check for updates: ${err.message || String(err)}`, "error");
         }
       }
     }
@@ -172,7 +199,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       await window.gopass.installUpdate(updateInfo.url);
     } catch (err: any) {
       console.error('Update installation failed:', err);
-      alert(`Update installation failed: ${err.message || String(err)}`);
+      showAppAlert("Installation Failed", `Update installation failed: ${err.message || String(err)}`, "error");
       setIsUpdating(false);
       setDownloadProgress(null);
     }
@@ -562,22 +589,26 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   // Delete Secret
   const handleDeleteSecret = async () => {
     if (!selectedSecretPath) return;
-    if (confirm(`Are you sure you want to delete secret ${selectedSecretPath}?`)) {
-      if (window.gopass) {
-        try {
-          setSyncStatus('syncing');
-          await window.gopass.deleteSecret(selectedSecretPath);
-          setSelectedSecretPath(null);
-          setActiveSecret({ password: '', metadata: {}, rawBody: '' });
-          await loadSecretsList();
-          setSyncStatus('clean');
-        } catch (err: any) {
-          console.error('Failed to delete secret:', err);
-          setSyncStatus('error');
-          setSyncError(err.message || 'Failed to delete secret');
+    showAppConfirm(
+      "Delete Secret",
+      `Are you sure you want to delete secret ${selectedSecretPath}?`,
+      async () => {
+        if (window.gopass) {
+          try {
+            setSyncStatus('syncing');
+            await window.gopass.deleteSecret(selectedSecretPath);
+            setSelectedSecretPath(null);
+            setActiveSecret({ password: '', metadata: {}, rawBody: '' });
+            await loadSecretsList();
+            setSyncStatus('clean');
+          } catch (err: any) {
+            console.error('Failed to delete secret:', err);
+            setSyncStatus('error');
+            setSyncError(err.message || 'Failed to delete secret');
+          }
         }
       }
-    }
+    );
   };
 
   // Sync Secrets
@@ -1753,7 +1784,11 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         <MenuItem
           onClick={() => {
             setHelpMenuAnchor(null);
-            alert(`Quick Access Global Hotkey: ${config.application.global_hotkey}`);
+            showAppAlert(
+              "Quick Access Info",
+              `Quick Access Global Hotkey: ${config.application.global_hotkey}\n\nPress this global shortcut anywhere to summon the Quick Access search bar instantly.`,
+              "info"
+            );
           }}
           sx={{ fontSize: '13px', py: 1, px: 2 }}
         >
@@ -1884,16 +1919,20 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                       <IconButton 
                         edge="end" 
                         color="error" 
-                        onClick={async () => {
-                          if (confirm(`Are you sure you want to remove mount "${m.alias}"?`)) {
-                            try {
-                              await window.gopass.removeMount(m.alias);
-                              await loadMountsList();
-                              await loadSecretsList();
-                            } catch (err: any) {
-                              alert(`Failed to remove mount: ${err.message}`);
+                        onClick={() => {
+                          showAppConfirm(
+                            "Remove Mount",
+                            `Are you sure you want to remove mount "${m.alias}"?`,
+                            async () => {
+                              try {
+                                await window.gopass.removeMount(m.alias);
+                                await loadMountsList();
+                                await loadSecretsList();
+                              } catch (err: any) {
+                                showAppAlert("Error Removing Mount", `Failed to remove mount: ${err.message}`, "error");
+                              }
                             }
-                          }
+                          );
                         }}
                       >
                         <DeleteIcon />
@@ -1959,7 +1998,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
               variant="contained"
               onClick={async () => {
                 if (!newMountAlias.trim() || !newMountPath.trim()) {
-                  alert('Please provide both an alias and directory path');
+                  showAppAlert("Validation Error", "Please provide both an alias and directory path.", "warning");
                   return;
                 }
                 try {
@@ -1969,7 +2008,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                   await loadMountsList();
                   await loadSecretsList();
                 } catch (err: any) {
-                  alert(`Failed to add mount: ${err.message}`);
+                  showAppAlert("Error Adding Mount", `Failed to add mount: ${err.message}`, "error");
                 }
               }}
               sx={{ alignSelf: 'flex-end', borderRadius: '8px' }}
@@ -2095,6 +2134,151 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                 Download & Install
               </Button>
             </>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Custom Alert/Confirm Dialog */}
+      <Dialog
+        open={Boolean(appAlertDialog?.open)}
+        onClose={() => {
+          if (appAlertDialog?.showConfirm) {
+            if (appAlertDialog.onCancel) appAlertDialog.onCancel();
+          }
+          setAppAlertDialog(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '24px',
+            padding: '24px',
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--glass-border)',
+            boxShadow: 'var(--elevation-3)',
+          }
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', textAlign: 'center' }}>
+          {/* Severity Icon */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              backgroundColor:
+                appAlertDialog?.severity === 'success'
+                  ? 'var(--color-success-container)'
+                  : appAlertDialog?.severity === 'error'
+                  ? 'rgba(186, 26, 26, 0.1)'
+                  : appAlertDialog?.severity === 'warning'
+                  ? 'rgba(237, 108, 2, 0.1)'
+                  : 'var(--color-primary-container)',
+              color:
+                appAlertDialog?.severity === 'success'
+                  ? 'var(--color-on-success-container)'
+                  : appAlertDialog?.severity === 'error'
+                  ? '#ba1a1a'
+                  : appAlertDialog?.severity === 'warning'
+                  ? '#ed6c02'
+                  : 'var(--color-on-primary-container)',
+            }}
+          >
+            {appAlertDialog?.severity === 'success' && (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            )}
+            {appAlertDialog?.severity === 'error' && (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            )}
+            {appAlertDialog?.severity === 'warning' && (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            )}
+            {(appAlertDialog?.severity === 'info' || !appAlertDialog?.severity) && (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            )}
+          </Box>
+
+          <Typography variant="h6" sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600, color: 'var(--color-on-surface)' }}>
+            {appAlertDialog?.title}
+          </Typography>
+
+          <Typography variant="body2" sx={{ color: 'var(--color-on-surface-variant)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+            {appAlertDialog?.message}
+          </Typography>
+        </Box>
+
+        <DialogActions sx={{ justifyContent: 'center', gap: 1.5, mt: 3, padding: 0 }}>
+          {appAlertDialog?.showConfirm ? (
+            <>
+              <Button
+                onClick={() => {
+                  if (appAlertDialog.onCancel) appAlertDialog.onCancel();
+                  setAppAlertDialog(null);
+                }}
+                variant="outlined"
+                sx={{
+                  borderRadius: '100px',
+                  px: 3,
+                  py: 1,
+                  fontFamily: 'var(--font-heading)',
+                  textTransform: 'none',
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (appAlertDialog.onConfirm) appAlertDialog.onConfirm();
+                  setAppAlertDialog(null);
+                }}
+                variant="contained"
+                color="primary"
+                autoFocus
+                sx={{
+                  borderRadius: '100px',
+                  px: 3,
+                  py: 1,
+                  fontFamily: 'var(--font-heading)',
+                  textTransform: 'none',
+                }}
+              >
+                Confirm
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => setAppAlertDialog(null)}
+              variant="contained"
+              color="primary"
+              autoFocus
+              sx={{
+                borderRadius: '100px',
+                px: 4,
+                py: 1,
+                fontFamily: 'var(--font-heading)',
+                textTransform: 'none',
+              }}
+            >
+              OK
+            </Button>
           )}
         </DialogActions>
       </Dialog>
