@@ -80,36 +80,66 @@ async function capture() {
         onShowPwgen: (cb) => () => {},
       };
       window.config = {
-        loadConfig: () => Promise.resolve({
-          version: '1.0.3',
-          application: {
-            start_at_login: false,
-            hide_on_blur: true,
-            clipboard_purge_delay_seconds: 45,
-            global_hotkey: 'Ctrl+Shift+P',
-            show_dashboard_on_startup: true,
-            shortcut_copy_password: 'Control+C',
-            shortcut_copy_username: 'Alt+U',
-            shortcut_copy_totp: 'Alt+O',
-            shortcut_edit_secret: 'Alt+E',
-            global_pwgen_hotkey: 'CommandOrControl+Shift+G',
-            pwgen_arguments: '20',
-          },
-          gopass_core: {
-            executable_path: 'gopass',
-            auto_sync_on_write: true,
-            default_store: 'root',
-          },
-          theme: {
-            mode: 'dark',
-            profile: 'custom',
-            allow_dynamic_system_accent: true,
-            custom_profile_seed: {
-              light: { seed_color: '#6750A4', tokens: {} },
-              dark: { seed_color: '#D0BCFF', tokens: {} },
+        loadConfig: () => {
+          const now = Date.now();
+          return Promise.resolve({
+            version: '1.0.3',
+            application: {
+              start_at_login: false,
+              hide_on_blur: true,
+              clipboard_purge_delay_seconds: 45,
+              global_hotkey: 'Ctrl+Shift+P',
+              show_dashboard_on_startup: true,
+              shortcut_copy_password: 'Control+C',
+              shortcut_copy_username: 'Alt+U',
+              shortcut_copy_totp: 'Alt+O',
+              shortcut_edit_secret: 'Alt+E',
+              global_pwgen_hotkey: 'CommandOrControl+Shift+G',
+              pwgen_arguments: '20',
             },
-          },
-        }),
+            gopass_core: {
+              executable_path: 'gopass',
+              auto_sync_on_write: true,
+              default_store: 'root',
+            },
+            theme: {
+              mode: 'dark',
+              profile: 'custom',
+              allow_dynamic_system_accent: true,
+              custom_profile_seed: {
+                light: { seed_color: '#6750A4', tokens: {} },
+                dark: { seed_color: '#D0BCFF', tokens: {} },
+              },
+            },
+            void_drops: [
+              {
+                sessionId: 'session-1',
+                name: 'chase-credentials.txt',
+                isFile: true,
+                size: 245,
+                created: now - 600000,
+                expiresAt: now + 3000000,
+                url: 'https://duhruh.me/void/drop.html#void-rtdb.firebaseio.com.session-1.aeskey',
+                status: 'pending',
+                maxAccess: 1,
+                accessCount: 0,
+              },
+              {
+                sessionId: 'session-2',
+                name: 'Secure Vault Shared Note',
+                isFile: false,
+                size: 45,
+                created: now - 1800000,
+                expiresAt: now + 1800000,
+                url: 'https://duhruh.me/void/drop.html#void-rtdb.firebaseio.com.session-2.aeskey',
+                status: 'consumed',
+                consumedAt: now - 1200000,
+                maxAccess: 3,
+                accessCount: 3,
+              }
+            ]
+          });
+        },
         saveConfig: () => Promise.resolve(),
         onConfigChanged: (cb) => () => {},
       };
@@ -146,6 +176,16 @@ async function capture() {
   }
   await page.screenshot({ path: path.join(docsAssetsDir, 'dashboard.png') });
   console.log('Captured dashboard.png');
+
+  // Click the Void Drop rail button to switch tabs and capture Void Drop screen
+  try {
+    await page.click('button[aria-label="Void Drop"]');
+    await page.waitForTimeout(1000); // let transition settle
+    await page.screenshot({ path: path.join(docsAssetsDir, 'void-drop.png') });
+    console.log('Captured void-drop.png');
+  } catch (err) {
+    console.error('Error switching to Void Drop tab:', err);
+  }
 
   // 2. Quick Access View
   const pageQA = await browser.newPage();

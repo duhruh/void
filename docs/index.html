@@ -683,6 +683,14 @@
         grid-template-columns: 1fr;
         gap: 48px;
       }
+      .showcase-item.large {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      .showcase-grid-two {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
     }
   </style>
 </head>
@@ -756,6 +764,11 @@
           <p>Press the global hotkey to pop up a compact random generator, press Space to re-roll and generate new strings, and hit Enter to copy and automatically close.</p>
         </div>
         <div class="feature-card">
+          <div class="feature-icon">🌌</div>
+          <h3>Void Drop (P2P Sharing)</h3>
+          <p>Stream volatile text or binary data directly from memory via end-to-end encrypted WebRTC channels. Set customizable download limits and time-to-live restrictions with zero server persistence.</p>
+        </div>
+        <div class="feature-card">
           <div class="feature-icon">🔒</div>
           <h3>Content Protection</h3>
           <p>Void configures OS level content protection parameters preventing any screenshots, video recordings, or screen-sharing apps from capturing visible secrets.</p>
@@ -806,6 +819,27 @@
           <div class="showcase-details">
             <h3>Unified Control Center</h3>
             <p>A full three-pane dashboard layout. Easily navigate your secret folders on the left, filter and select items in the middle, and view/edit details, key-value metadata, or copy/reveal credentials on the right.</p>
+          </div>
+        </div>
+
+        <!-- Void Drop Card -->
+        <div class="showcase-item large" style="margin-top: 48px;">
+          <div class="window-frame">
+            <div class="window-titlebar">
+              <div class="titlebar-dots">
+                <div class="titlebar-dot" style="background:#ff5f56"></div>
+                <div class="titlebar-dot" style="background:#ffbd2e"></div>
+                <div class="titlebar-dot" style="background:#27c93f"></div>
+              </div>
+              <span class="window-title">Void — Void Drop Sharing</span>
+            </div>
+            <div class="window-content">
+              <img src="assets/void-drop.png" alt="Void Drop P2P Sharing" class="showcase-img">
+            </div>
+          </div>
+          <div class="showcase-details">
+            <h3>Void Drop E2E P2P Sharing</h3>
+            <p>Share text or files securely using peer-to-peer WebRTC connections. Set download limits, GPG signatures, and custom expiry durations. Active drops are listed dynamically, showing live connected counts and remaining lifespans, leaving zero trace on external servers.</p>
           </div>
         </div>
 

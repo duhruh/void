@@ -31,6 +31,7 @@ Void prioritizes security (enforcing screen capture and recording protection out
   - **Pane 1**: Live folder/directory tree structure compiled from your secrets.
   - **Pane 2**: Quick lists of secrets in the active folder.
   - **Pane 3**: Rich editor supporting dynamic key-value metadata fields, password strength visualizer, and Markdown-rendered secure notes.
+- **🌌 Void Drop (P2P Ephemeral Sharing)**: Stream text notes or binary files directly from your volatile RAM to a recipient's browser using end-to-end encrypted WebRTC channels (zero server persistence). Supports GPG signing/encryption, configurable lifetimes (max 24h), and download access limits.
 - **⚡ Fully Custom Shortcuts**: Record key combinations directly in settings to customize all global and inside-Quick-Access hotkeys.
 - **🔄 Auto Sync**: Triggers automated Git push/pull syncs with remote repositories on write operations.
 - **🔒 Screen-Capture Protection**: Enforces content protection policies preventing other applications, screen recorders, or screenshots from capturing secret details.
@@ -45,12 +46,17 @@ Void prioritizes security (enforcing screen capture and recording protection out
   <img src="docs/assets/dashboard.png" alt="Void Dashboard" width="700">
 </p>
 
-### 2. Quick Access Overlay
+### 2. Void Drop (P2P Ephemeral Sharing)
+<p align="center">
+  <img src="docs/assets/void-drop.png" alt="Void Drop P2P Sharing" width="700">
+</p>
+
+### 3. Quick Access Overlay
 <p align="center">
   <img src="docs/assets/quick-access.png" alt="Void Quick Access Search" width="500">
 </p>
 
-### 3. Password Generator Popup
+### 4. Password Generator Popup
 <p align="center">
   <img src="docs/assets/pwgen.png" alt="Void Password Generator" width="400">
 </p>
