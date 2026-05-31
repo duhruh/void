@@ -325,14 +325,37 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
   // Detect binary file secrets
   const isFileSecret = useMemo(() => {
     if (!activeSecret) return false;
-    const lastSegment = selectedSecretPath ? selectedSecretPath.split('/').pop() || '' : '';
-    const hasExtension = /\.[a-zA-Z0-9]{2,5}$/.test(lastSegment);
-    return (
+    
+    // Explicitly check for password indicator or metadata headers first
+    if (
       activeSecret.password === '[Void Secure File]' ||
       activeSecret.metadata['Content-Disposition'] !== undefined ||
-      activeSecret.metadata['Content-Transfer-Encoding'] !== undefined ||
-      !!hasExtension
-    );
+      activeSecret.metadata['Content-Transfer-Encoding'] !== undefined
+    ) {
+      return true;
+    }
+
+    const lastSegment = selectedSecretPath ? selectedSecretPath.split('/').pop() || '' : '';
+    const dotIndex = lastSegment.lastIndexOf('.');
+    const ext = dotIndex !== -1 ? lastSegment.slice(dotIndex + 1).toLowerCase() : '';
+    
+    // Whitelist of common file extensions to prevent treating domain names (e.g. facebook.com) as files
+    const commonFileExtensions = new Set([
+      // Images
+      'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp', 'tiff',
+      // Documents
+      'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'csv', 'md', 'pages', 'numbers', 'key', 'log', 'sql',
+      // Archives
+      'zip', 'tar', 'gz', 'tgz', 'rar', '7z', 'dmg', 'iso', 'bz2', 'xz',
+      // Executables/Binaries
+      'exe', 'bin', 'dll', 'so', 'appimage', 'deb', 'rpm', 'msi',
+      // Developer/Config
+      'json', 'xml', 'yaml', 'yml', 'ini', 'conf', 'cfg', 'sh', 'bat', 'ps1', 'py', 'js', 'ts', 'go', 'rs', 'c', 'cpp', 'h',
+      // Certificates/Keys
+      'key', 'crt', 'pem', 'pub', 'gpg', 'asc', 'sig', 'p12', 'pfx'
+    ]);
+
+    return !!(ext && commonFileExtensions.has(ext));
   }, [activeSecret, selectedSecretPath]);
 
   const fileDetails = useMemo(() => {
