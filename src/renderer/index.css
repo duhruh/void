@@ -223,7 +223,6 @@ input, textarea, button {
   padding-left: 16px;
   padding-right: 0;
   background-color: var(--color-surface-variant);
-  border-bottom: 1px solid var(--glass-border);
   -webkit-app-region: drag;
   justify-content: space-between;
   z-index: 10;

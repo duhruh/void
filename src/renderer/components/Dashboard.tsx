@@ -1113,19 +1113,18 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
       </Box>
 
       {/* Rest of the Dashboard layout */}
-      <Box className="window-content" sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <Box className="window-content" sx={{ display: 'flex', flex: 1, overflow: 'hidden', backgroundColor: 'var(--color-surface-variant)' }}>
         
         {/* Navigation Rail (M3 Sidebar) */}
         <Box
           sx={{
             width: '56px',
-            borderRight: '1px solid var(--color-surface-variant)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             py: 2,
             gap: 2,
-            backgroundColor: 'rgba(254, 247, 255, 0.15)',
+            backgroundColor: 'var(--color-surface-variant)',
             flexShrink: 0,
           }}
         >
@@ -1166,7 +1165,20 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
           </Tooltip>
         </Box>
 
-        <Box sx={{ display: activeTab === 'vault' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+        {/* Main Content Area Container */}
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            backgroundColor: 'var(--color-surface)',
+            borderTopLeftRadius: '16px',
+            borderLeft: '1px solid var(--glass-border)',
+            borderTop: '1px solid var(--glass-border)',
+          }}
+        >
+          <Box sx={{ display: activeTab === 'vault' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
             {/* PANE 1: Navigation Tree (Left Pane) */}
       <Box
         sx={{
@@ -1854,6 +1866,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         >
           <VoidDrop config={config} setConfig={setConfig} />
         </Box>
+      </Box>
 
       {/* SETTINGS DIALOG */}
       <SettingsDialog
