@@ -51,6 +51,7 @@ interface ActiveDrop {
   signature?: string;
   maxAccess?: number;
   accessCount?: number;
+  consumedAt?: number;
 }
 
 export default function VoidDrop({ config, setConfig }: VoidDropProps) {
@@ -109,6 +110,7 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
       signature: d.signature,
       maxAccess: d.maxAccess,
       accessCount: d.accessCount,
+      consumedAt: d.consumedAt,
     }));
     const updatedConfig = {
       ...config,
@@ -326,6 +328,7 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
                   accessCount: nextAccessCount,
                   status: isFullyConsumed ? ('consumed' as const) : ('pending' as const),
                   progress: 100,
+                  consumedAt: isFullyConsumed ? Date.now() : d.consumedAt,
                 };
               }
               return d;
@@ -755,15 +758,23 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
     return `${seconds}s left`;
   };
 
+  const formatTime = (ts: number) => {
+    if (!ts) return '';
+    const date = new Date(ts);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   const getDropSubtitle = (drop: ActiveDrop) => {
     const sizeStr = formatSize(drop.size);
+    const countStr = `Count: ${drop.accessCount || 0}/${drop.maxAccess || 1}`;
     if (drop.status === 'consumed') {
-      return `${sizeStr} • Spent`;
+      const spentTime = drop.consumedAt ? `Spent at: ${formatTime(drop.consumedAt)}` : 'Spent';
+      return `${sizeStr} • ${spentTime} • ${countStr}`;
     }
     if (Date.now() > drop.expiresAt) {
-      return `${sizeStr} • Expired`;
+      return `${sizeStr} • Expired • ${countStr}`;
     }
-    return `${sizeStr} • ${getRemainingTimeText(drop.expiresAt)}`;
+    return `${sizeStr} • ${getRemainingTimeText(drop.expiresAt)} • ${countStr}`;
   };
 
   const formatSize = (bytes: number) => {
@@ -805,27 +816,32 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
             </Box>
           ) : (
             <List sx={{ p: 0 }}>
-              {activeDrops.map((drop) => (
-                <ListItem
-                  key={drop.sessionId}
-                  sx={{
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'stretch',
-                    p: 2,
-                    gap: 1,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all', color: 'var(--color-on-surface)' }}>
-                        {drop.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)', display: 'block' }}>
-                        {getDropSubtitle(drop)}
-                      </Typography>
-                    </Box>
+              {[...activeDrops]
+                .sort((a, b) => b.created - a.created)
+                .map((drop) => (
+                  <ListItem
+                    key={drop.sessionId}
+                    sx={{
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      p: 2,
+                      gap: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-all', color: 'var(--color-on-surface)' }}>
+                          {drop.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)', display: 'block' }}>
+                          {getDropSubtitle(drop)}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'var(--color-on-surface-variant)', display: 'block', mt: 0.25, opacity: 0.85 }}>
+                          Created: {formatTime(drop.created)}
+                        </Typography>
+                      </Box>
                     <IconButton size="small" onClick={() => forceExpire(drop.sessionId)} sx={{ color: '#ba1a1a', ml: 1 }}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>

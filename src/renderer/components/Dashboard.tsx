@@ -608,8 +608,8 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         }
         textPayload = binaryBase64;
         size = getByteSize(binaryBase64);
-        if (activeSecret.metadata['filename']) {
-          payloadName = activeSecret.metadata['filename'];
+        if (fileDetails && fileDetails.filename) {
+          payloadName = fileDetails.filename;
         }
       } else {
         textPayload = activeSecret.rawBody 
@@ -1449,6 +1449,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                   size="small"
                   startIcon={<AttachFileIcon />}
                   onClick={handleShareFromVault}
+                  sx={{ whiteSpace: 'nowrap', minWidth: 'max-content' }}
                 >
                   Void Drop
                 </Button>
@@ -1694,6 +1695,26 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
                           disabled={!isEditing}
                           onChange={(e) => handleUpdateMetaValue(key, e.target.value)}
                           sx={{ flex: 1 }}
+                          InputProps={!isEditing ? {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    if (window.clipboard) {
+                                      window.clipboard.writeText(value);
+                                    } else {
+                                      navigator.clipboard.writeText(value);
+                                    }
+                                    showToast(`Copied ${key} to clipboard!`);
+                                  }}
+                                  edge="end"
+                                >
+                                  <CopyIcon fontSize="small" />
+                                </IconButton>
+                              </InputAdornment>
+                            )
+                          } : undefined}
                         />
                         {isEditing && (
                           <IconButton size="small" color="error" onClick={() => handleDeleteMetaKey(key)}>
