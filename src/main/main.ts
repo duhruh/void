@@ -392,7 +392,10 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle('win:close', async () => {
+  ipcMain.handle('win:close', async (_, reallyQuit?: boolean) => {
+    if (reallyQuit) {
+      (app as any).isQuitting = true;
+    }
     dashboardWindow?.close();
   });
 

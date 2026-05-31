@@ -103,7 +103,10 @@ describe('Preload Bridge', () => {
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:maximize');
 
     await windowExposed.close();
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:close');
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:close', undefined);
+
+    await windowExposed.close(true);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:close', true);
 
     await windowExposed.hidePwgen();
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('win:hide-pwgen');

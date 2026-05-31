@@ -49,7 +49,7 @@ contextBridge.exposeInMainWorld('windowControl', {
   openDashboard: (): Promise<void> => ipcRenderer.invoke('win:open-dashboard'),
   minimize: (): Promise<void> => ipcRenderer.invoke('win:minimize'),
   maximize: (): Promise<void> => ipcRenderer.invoke('win:maximize'),
-  close: (): Promise<void> => ipcRenderer.invoke('win:close'),
+  close: (reallyQuit?: boolean): Promise<void> => ipcRenderer.invoke('win:close', reallyQuit),
   hidePwgen: (): Promise<void> => ipcRenderer.invoke('win:hide-pwgen'),
   selectDirectory: (): Promise<string | null> => ipcRenderer.invoke('win:select-directory'),
   onShowQuickAccess: (callback: () => void) => {

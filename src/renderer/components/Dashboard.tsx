@@ -1919,7 +1919,7 @@ export default function Dashboard({ config, setConfig }: DashboardProps) {
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
-          onClick={() => { setFileMenuAnchor(null); window.windowControl.close(); }}
+          onClick={() => { setFileMenuAnchor(null); window.windowControl.close(true); }}
           sx={{ fontSize: '13px', py: 1, px: 2 }}
         >
           Exit

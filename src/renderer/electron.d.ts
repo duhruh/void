@@ -36,7 +36,7 @@ declare global {
       openDashboard(): Promise<void>;
       minimize(): Promise<void>;
       maximize(): Promise<void>;
-      close(): Promise<void>;
+      close(reallyQuit?: boolean): Promise<void>;
       hidePwgen(): Promise<void>;
       selectDirectory(): Promise<string | null>;
       onShowQuickAccess(callback: () => void): () => void;
