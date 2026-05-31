@@ -389,29 +389,86 @@
       let metadata = null;
       let maxAccess = 1;
 
-      try {
-        peerConnection = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
+      function initPeerConnection() {
+        if (peerConnection) return;
+        try {
+          peerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          });
 
+          // Gather local ICE candidates and post to Firebase
+          peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+              fetch(`https://${dbHost}/sessions/${sessionId}/candidates/receiver.json`, {
+                method: 'POST',
+                body: JSON.stringify(event.candidate)
+              }).catch(err => console.error('Failed to post candidate:', err));
+            }
+          };
+
+          // Set up incoming data channel listener
+          peerConnection.ondatachannel = (event) => {
+            const receiveChannel = event.channel;
+            receiveChannel.binaryType = 'arraybuffer';
+
+            receiveChannel.onopen = () => {
+              statusText.innerText = "Connected to Void Desktop!";
+              statusSub.innerText = "Downloading encrypted payload stream...";
+            };
+
+            receiveChannel.onmessage = async (msg) => {
+              if (typeof msg.data === 'string') {
+                try {
+                  const signal = JSON.parse(msg.data);
+                  if (signal.type === 'header') {
+                    metadata = signal;
+                    statusText.innerText = "Streaming payload data...";
+                    statusSub.innerText = `Receiving: ${metadata.name} (${formatSize(metadata.size)})`;
+                  } else if (signal.type === 'eof') {
+                    statusText.innerText = "Decrypting payload...";
+                    statusSub.innerText = "Processing cryptographical buffer in volatile RAM...";
+                    
+                    // Complete data stream cleanup
+                    receiveChannel.close();
+                    if (peerConnection) peerConnection.close();
+                    if (eventSource) eventSource.close();
+                    
+                    // Delete signaling session in Firebase (single response constraint) only if maxAccess <= 1
+                    if (maxAccess <= 1) {
+                      fetch(`https://${dbHost}/sessions/${sessionId}.json`, { method: 'DELETE' })
+                        .catch(err => console.error('Failed cleanup:', err));
+                    }
+
+                    // Process buffer
+                    await handlePayloadReceived(receivedChunks, metadata, aesKeyHex);
+                  }
+                } catch (err) {
+                  console.error('Failed to parse metadata/eof packet:', err);
+                }
+              } else {
+                // Binary Chunk
+                receivedChunks.push(new Uint8Array(msg.data));
+              }
+            };
+          };
+        } catch (err) {
+          console.error('Failed to start WebRTC receiver:', err);
+          showError("Failed to initialize connection engine: " + err.message);
+        }
+      }
+
+      try {
         // EventSource for Realtime Database Relaying
         eventSource = new EventSource(`https://${dbHost}/sessions/${sessionId}.json`);
-
-        // Gather local ICE candidates and post to Firebase
-        peerConnection.onicecandidate = (event) => {
-          if (event.candidate) {
-            fetch(`https://${dbHost}/sessions/${sessionId}/candidates/receiver.json`, {
-              method: 'POST',
-              body: JSON.stringify(event.candidate)
-            }).catch(err => console.error('Failed to post candidate:', err));
-          }
-        };
 
         const handleOffer = async (offer) => {
           if (!offer) return;
           try {
             statusText.innerText = "Negotiating connection...";
             statusSub.innerText = "SDP handshake initialized by sender.";
+            
+            initPeerConnection();
+            if (!peerConnection) return;
             
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
@@ -429,6 +486,8 @@
 
         const handleCandidates = async (candidatesData) => {
           if (!candidatesData) return;
+          initPeerConnection();
+          if (!peerConnection) return;
           const list = (typeof candidatesData === 'object' && candidatesData.candidate)
             ? [candidatesData]
             : Object.values(candidatesData);
@@ -455,7 +514,7 @@
             if (data === null) {
               showError("This Void Drop link has expired or has already been consumed.");
               eventSource.close();
-              peerConnection.close();
+              if (peerConnection) peerConnection.close();
               return;
             }
             if (data) {
@@ -463,7 +522,7 @@
               if (data.metadata && data.metadata.expiresAt && Date.now() > data.metadata.expiresAt) {
                 showError("This Void Drop link has expired.");
                 eventSource.close();
-                peerConnection.close();
+                if (peerConnection) peerConnection.close();
                 return;
               }
               if (data.metadata && typeof data.metadata.maxAccess === 'number') {
@@ -499,7 +558,7 @@
             if (data.metadata && data.metadata.expiresAt && Date.now() > data.metadata.expiresAt) {
               showError("This Void Drop link has expired.");
               eventSource.close();
-              peerConnection.close();
+              if (peerConnection) peerConnection.close();
               return;
             }
             if (data.metadata && typeof data.metadata.maxAccess === 'number') {
@@ -513,52 +572,6 @@
             }
           }
         });
-
-        // Set up incoming data channel listener
-        peerConnection.ondatachannel = (event) => {
-          const receiveChannel = event.channel;
-          receiveChannel.binaryType = 'arraybuffer';
-
-          receiveChannel.onopen = () => {
-            statusText.innerText = "Connected to Void Desktop!";
-            statusSub.innerText = "Downloading encrypted payload stream...";
-          };
-
-          receiveChannel.onmessage = async (msg) => {
-            if (typeof msg.data === 'string') {
-              try {
-                const signal = JSON.parse(msg.data);
-                if (signal.type === 'header') {
-                  metadata = signal;
-                  statusText.innerText = "Streaming payload data...";
-                  statusSub.innerText = `Receiving: ${metadata.name} (${formatSize(metadata.size)})`;
-                } else if (signal.type === 'eof') {
-                  statusText.innerText = "Decrypting payload...";
-                  statusSub.innerText = "Processing cryptographical buffer in volatile RAM...";
-                  
-                  // Complete data stream cleanup
-                  receiveChannel.close();
-                  peerConnection.close();
-                  eventSource.close();
-                  
-                  // Delete signaling session in Firebase (single response constraint) only if maxAccess <= 1
-                  if (maxAccess <= 1) {
-                    fetch(`https://${dbHost}/sessions/${sessionId}.json`, { method: 'DELETE' })
-                      .catch(err => console.error('Failed cleanup:', err));
-                  }
-
-                  // Process buffer
-                  await handlePayloadReceived(receivedChunks, metadata, aesKeyHex);
-                }
-              } catch (err) {
-                console.error('Failed to parse metadata/eof packet:', err);
-              }
-            } else {
-              // Binary Chunk
-              receivedChunks.push(new Uint8Array(msg.data));
-            }
-          };
-        };
 
       } catch (err) {
         console.error('Failed to start WebRTC receiver:', err);

@@ -333,40 +333,49 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
               }
               return d;
             });
-            saveDropsToConfig(updated);
-
-            // Clean up connection after a brief delay
-            setTimeout(() => {
-              pc.close();
-              const conn = connectionsRef.current.get(sessionId);
-              if (conn) {
-                conn.es?.close();
-                connectionsRef.current.delete(sessionId);
-              }
-
-              if (isFullyConsumed) {
-                // Delete session from Firebase (single-response / fully consumed)
-                fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' })
-                  .catch(err => console.error('Failed to delete session:', err));
-              } else {
-                // Prepare for next connection: clear answer and receiver candidates
-                fetch(`https://${host}/sessions/${sessionId}/answer.json`, { method: 'DELETE' })
-                  .catch(err => console.error('Failed to clear answer:', err));
-                fetch(`https://${host}/sessions/${sessionId}/candidates/receiver.json`, { method: 'DELETE' })
-                  .catch(err => console.error('Failed to clear candidates:', err));
-
-                // Re-start connection engine for the next peer
-                const updatedDrop = updated.find(d => d.sessionId === sessionId);
-                if (updatedDrop) {
-                  setTimeout(() => {
-                    startConnection(updatedDrop, initialFile);
-                  }, 1000);
-                }
-              }
-            }, 3000);
-
-            return updated;
-          });
+             saveDropsToConfig(updated);
+ 
+             if (isFullyConsumed) {
+               // Close EventSource immediately to stop listening to any new signaling events
+               const conn = connectionsRef.current.get(sessionId);
+               if (conn) {
+                 conn.es?.close();
+               }
+               // Delete session from Firebase immediately
+               fetch(`https://${host}/sessions/${sessionId}.json`, { method: 'DELETE' })
+                 .catch(err => console.error('Failed to delete session:', err));
+             }
+ 
+             // Clean up connection after a brief delay to allow remaining packets to flush
+             setTimeout(() => {
+               pc.close();
+               const conn = connectionsRef.current.get(sessionId);
+               if (conn) {
+                 if (!isFullyConsumed) {
+                   conn.es?.close();
+                 }
+                 connectionsRef.current.delete(sessionId);
+               }
+ 
+               if (!isFullyConsumed) {
+                 // Prepare for next connection: clear answer and receiver candidates
+                 fetch(`https://${host}/sessions/${sessionId}/answer.json`, { method: 'DELETE' })
+                   .catch(err => console.error('Failed to clear answer:', err));
+                 fetch(`https://${host}/sessions/${sessionId}/candidates/receiver.json`, { method: 'DELETE' })
+                   .catch(err => console.error('Failed to clear candidates:', err));
+ 
+                 // Re-start connection engine for the next peer
+                 const updatedDrop = updated.find(d => d.sessionId === sessionId);
+                 if (updatedDrop) {
+                   setTimeout(() => {
+                     startConnection(updatedDrop, initialFile);
+                   }, 1000);
+                 }
+               }
+             }, 3000);
+ 
+             return updated;
+           });
 
         } catch (err) {
           console.error('Data channel streaming error:', err);
@@ -404,26 +413,47 @@ export default function VoidDrop({ config, setConfig }: VoidDropProps) {
 
       let eventSource: EventSource | null = null;
 
-      const handleAnswer = async (answer: any) => {
+       const handleAnswer = async (answer: any) => {
         if (!answer) return;
         try {
+          let shouldAbort = false;
           setActiveDrops(prev => {
+            const currentDrop = prev.find(d => d.sessionId === sessionId);
+            if (currentDrop && (currentDrop.status === 'consumed' || currentDrop.status === 'failed')) {
+              shouldAbort = true;
+              return prev;
+            }
             const updated = prev.map(d => d.sessionId === sessionId ? { ...d, status: 'connecting' as const } : d);
             saveDropsToConfig(updated);
             return updated;
           });
+          if (shouldAbort) {
+            console.log(`Aborted handleAnswer for session ${sessionId} because it is already consumed or failed.`);
+            return;
+          }
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
         } catch (err) {
           console.error('Failed to set remote description on sender:', err);
         }
       };
-
+ 
       const handleReceiverCandidates = async (candidatesData: any) => {
         if (!candidatesData) return;
+        
+        let shouldAbort = false;
+        setActiveDrops(prev => {
+          const currentDrop = prev.find(d => d.sessionId === sessionId);
+          if (currentDrop && (currentDrop.status === 'consumed' || currentDrop.status === 'failed')) {
+            shouldAbort = true;
+          }
+          return prev;
+        });
+        if (shouldAbort) return;
+
         const list = (typeof candidatesData === 'object' && candidatesData.candidate)
           ? [candidatesData]
           : Object.values(candidatesData);
-
+ 
         for (const cand of list) {
           if (cand && (cand as any).candidate) {
             try {
