@@ -597,8 +597,15 @@ function setupIpcHandlers() {
             if (process.platform === 'win32') {
               const updaterVbsPath = path.join(tempDir, 'void_updater.vbs');
               const appPath = process.execPath;
+              const parentPid = process.pid;
               const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
-WScript.Sleep 2000
+Set wmi = GetObject("winmgmts:")
+Do
+  Set procs = wmi.ExecQuery("Select * from Win32_Process Where ProcessId = ${parentPid}")
+  If procs.Count = 0 Then Exit Do
+  WScript.Sleep 200
+Loop
+WScript.Sleep 500
 WshShell.Run """${installerPath.replace(/"/g, '""')}"" /S", 0, True
 WshShell.Run """${appPath.replace(/"/g, '""')}"" --post-update"
 Set fso = CreateObject("Scripting.FileSystemObject")
