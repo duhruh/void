@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/duhruh/void/actions/workflows/build-and-release.yml"><img src="https://github.com/duhruh/void/actions/workflows/build-and-release.yml/badge.svg" alt="Build Status"></a>
-  <a href="https://github.com/duhruh/void/releases"><img src="https://img.shields.io/badge/release-v1.0.4-6750A4?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/duhruh/void/releases"><img src="https://img.shields.io/badge/release-v1.1.0-6750A4?style=flat-square" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <a href="https://github.com/gopasspw/gopass"><img src="https://img.shields.io/badge/dependency-gopass-00BCD4?style=flat-square" alt="Gopass Dependency"></a>
 </p>
@@ -68,16 +68,16 @@ Void prioritizes security (enforcing screen capture and recording protection out
 Download the latest installer for your operating system from the [Releases Page](https://github.com/duhruh/void/releases).
 
 ### Windows
-- Download `Void-1.0.4.exe` (NSIS Installer) or `Void-1.0.4-portable.exe` (Portable build).
+- Download `Void-1.1.0.exe` (NSIS Installer) or `Void-1.1.0-portable.exe` (Portable build).
 - Run the executable to install or launch instantly.
 
 ### macOS
-- Download `Void-1.0.4.dmg` or `Void-1.0.4-mac.zip`.
+- Download `Void-1.1.0.dmg` or `Void-1.1.0-mac.zip`.
 - Open the DMG and drag Void to your `Applications` folder.
 
 ### Linux
-- Download `Void-1.0.4.AppImage` (portable AppImage) or `void-desktop_1.0.4_amd64.deb` (Debian/Ubuntu package).
-- For deb: run `sudo dpkg -i void-desktop_1.0.4_amd64.deb`.
+- Download `Void-1.1.0.AppImage` (portable AppImage) or `void-desktop_1.1.0_amd64.deb` (Debian/Ubuntu package).
+- For deb: run `sudo dpkg -i void-desktop_1.1.0_amd64.deb`.
 - For AppImage: mark as executable and run.
 
 ---
