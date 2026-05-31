@@ -170,8 +170,8 @@ function createQuickAccessWindow(useDevServer: boolean) {
 function createDashboardWindow(useDevServer: boolean) {
   const iconPath = getAppIconPath(currentConfig.theme.mode, 'window');
   dashboardWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1422,
+    height: 800,
     minWidth: 800,
     minHeight: 600,
     show: false,
